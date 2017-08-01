@@ -1,17 +1,27 @@
 extern crate getopts;
 extern crate postgres;
 extern crate xml;
+extern crate regex;
 
 extern crate serde;
 extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 
+extern crate tempfile;
+
 use std::{env, process};
 use getopts::Options;
+use std::thread;
+use std::thread::JoinHandle;
+use std::process::Command;
+use regex::Regex;
+
+use tempfile::NamedTempFile;
 
 use std::fs::File;
-use std::io::{Write, BufReader, BufWriter};
+use std::path::Path;
+use std::io::{Write, BufReader, BufRead, BufWriter};
 use std::collections::hash_map::HashMap;
 use std::collections::HashSet;
 
@@ -24,6 +34,8 @@ use postgres::{Connection, TlsMode};
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+type UniProtId = String;
+
 #[derive(Serialize, Debug, Clone)]
 struct Location {
     start: usize,
@@ -32,7 +44,7 @@ struct Location {
 }
 
 #[derive(Serialize, Debug, Clone)]
-struct Match {
+struct InterproMatch {
     id: String,
     dbname: String,
     name: String,
@@ -44,9 +56,16 @@ struct Match {
 }
 
 #[derive(Serialize, Debug, Clone)]
-struct UniprotResult {
+struct TMMatch {
+    start: usize,
+    end: usize,
+}
+
+#[derive(Serialize, Debug, Clone)]
+struct UniProtResult {
     uniprot_id: String,
-    interpro_matches: Vec<Match>,
+    interpro_matches: Vec<InterproMatch>,
+    tmhmm_matches: Vec<TMMatch>,
 }
 
 fn print_usage(program: &str, opts: Options) {
@@ -65,7 +84,79 @@ fn get_chado_uniprot_ids(conn: &Connection) -> HashSet<String> {
     return_set
 }
 
-fn add_ipr_to_match(interpro_match: &mut Match, attributes: &Vec<OwnedAttribute>) {
+fn get_chado_prot_sequences(conn: &Connection) -> HashMap<String, String> {
+    let mut ret = HashMap::new();
+
+    for row in &conn.query("
+SELECT uniprot_id_prop.value AS uniprot_id, prot.residues
+FROM feature g
+JOIN featureprop uniprot_id_prop ON g.feature_id = uniprot_id_prop.feature_id
+JOIN feature_relationship gt_rel ON gt_rel.object_id = g.feature_id
+JOIN feature tr ON gt_rel.subject_id = tr.feature_id
+JOIN feature_relationship tp_rel ON tr.feature_id = tp_rel.object_id
+JOIN feature prot ON tp_rel.subject_id = prot.feature_id
+WHERE gt_rel.type_id IN (SELECT cvterm_id FROM cvterm WHERE name = 'part_of')
+  AND tp_rel.type_id IN (SELECT cvterm_id FROM cvterm WHERE name = 'derives_from')
+  AND prot.type_id IN (SELECT cvterm_id FROM cvterm WHERE name = 'polypeptide')
+  AND uniprot_id_prop.type_id IN (SELECT cvterm_id FROM cvterm WHERE name = 'uniprot_identifier')
+", &[]).unwrap() {
+        let gene_uniquename: String = row.get(0);
+        let residues: String = row.get(1);
+        ret.insert(gene_uniquename, residues);
+    }
+
+    ret
+}
+
+fn write_prot_sequences(path: &Path, seq_map: &HashMap<String, String>) {
+    let f = File::create(path).expect("Can't create protein sequence file");
+    let mut writer = BufWriter::new(&f);
+    for (gene_uniquename, residues) in seq_map {
+        writer.write_fmt(format_args!(">{}\n", gene_uniquename)).unwrap();
+        writer.write_fmt(format_args!("{}\n", residues)).unwrap();
+    }
+}
+
+fn make_tmhmm_thread(conn: &Connection) -> JoinHandle<HashMap<UniProtId, Vec<TMMatch>>> {
+    let seq_map = get_chado_prot_sequences(conn);
+    let tmpfile = NamedTempFile::new().unwrap();
+    write_prot_sequences(tmpfile.path(), &seq_map);
+
+    let re = Regex::new(r"(?i)(\S+)\s+tmhmm\S+\s+tmhelix\s+(\d+)\s+(\d+)").unwrap();
+
+    thread::spawn(move || {
+        let mut ret = HashMap::new();
+        let tmhmm = Command::new("tmhmm")
+            .arg(tmpfile.path().as_os_str())
+            .stdout(process::Stdio::piped())
+            .spawn()
+            .expect("tmhmm command failed to start");
+        let buf_reader = BufReader::new(tmhmm.stdout.unwrap());
+        'LINE: for line_result in buf_reader.lines() {
+            let line = line_result.unwrap();
+            if line.starts_with("#") {
+                continue 'LINE;
+            }
+
+            let re_result = re.captures(&line);
+
+            if let Some(captures) = re_result {
+                let uniprot_id = captures.get(1).unwrap().as_str();
+                let start = captures.get(2).unwrap().as_str().parse::<usize>().unwrap();
+                let end = captures.get(3).unwrap().as_str().parse::<usize>().unwrap();
+                ret.entry(String::from(uniprot_id))
+                    .or_insert(vec![])
+                    .push(TMMatch {
+                        start: start,
+                        end: end,
+                    });
+            }
+        }
+        ret
+    })
+}
+
+fn add_ipr_to_match(domain_match: &mut InterproMatch, attributes: &Vec<OwnedAttribute>) {
     let mut interpro_id = None;
     let mut interpro_name = None;
     let mut interpro_type = None;
@@ -85,12 +176,12 @@ fn add_ipr_to_match(interpro_match: &mut Match, attributes: &Vec<OwnedAttribute>
         }
     }
 
-    interpro_match.interpro_id = interpro_id.unwrap();
-    interpro_match.interpro_name = interpro_name.unwrap();
-    interpro_match.interpro_type = interpro_type.unwrap();
+    domain_match.interpro_id = interpro_id.unwrap();
+    domain_match.interpro_name = interpro_name.unwrap();
+    domain_match.interpro_type = interpro_type.unwrap();
 }
 
-fn add_lcn_to_match(interpro_match: &mut Match, attributes: &Vec<OwnedAttribute>) {
+fn add_lcn_to_match(domain_match: &mut InterproMatch, attributes: &Vec<OwnedAttribute>) {
     let mut start = None;
     let mut end = None;
     let mut score = None;
@@ -110,7 +201,7 @@ fn add_lcn_to_match(interpro_match: &mut Match, attributes: &Vec<OwnedAttribute>
         }
     }
 
-    interpro_match.locations
+    domain_match.locations
         .push(Location {
             start: start.unwrap(),
             end: end.unwrap(),
@@ -119,7 +210,7 @@ fn add_lcn_to_match(interpro_match: &mut Match, attributes: &Vec<OwnedAttribute>
 }
 
 fn make_uniprot_result(chado_uniprot_ids: &HashSet<String>,
-                       attributes: &Vec<OwnedAttribute>) -> Option<UniprotResult>
+                       attributes: &Vec<OwnedAttribute>) -> Option<UniProtResult>
 {
     let mut uniprot_id = None;
 
@@ -131,16 +222,17 @@ fn make_uniprot_result(chado_uniprot_ids: &HashSet<String>,
     }
 
     if chado_uniprot_ids.get(uniprot_id.as_ref().unwrap()).is_some() {
-        Some(UniprotResult {
+        Some(UniProtResult {
             uniprot_id: uniprot_id.unwrap(),
             interpro_matches: vec![],
+            tmhmm_matches: vec![],
         })
     } else {
         None
     }
 }
 
-fn make_match(attributes: &Vec<OwnedAttribute>) -> Option<Match> {
+fn make_match(attributes: &Vec<OwnedAttribute>) -> Option<InterproMatch> {
     let mut id = None;
     let mut name = None;
     let mut dbname = None;
@@ -171,7 +263,7 @@ fn make_match(attributes: &Vec<OwnedAttribute>) -> Option<Match> {
     }
 
     if status.is_some() {
-        Some(Match {
+        Some(InterproMatch {
             id: id.unwrap(),
             dbname: dbname.unwrap(),
             name: name.unwrap(),
@@ -187,7 +279,7 @@ fn make_match(attributes: &Vec<OwnedAttribute>) -> Option<Match> {
 }
 
 fn parse(chado_uniprot_ids: &HashSet<String>, filename: &str)
-         -> HashMap<String, UniprotResult>
+         -> HashMap<String, UniProtResult>
 {
     let file = File::open(filename).unwrap();
     let file = BufReader::new(file);
@@ -200,7 +292,7 @@ fn parse(chado_uniprot_ids: &HashSet<String>, filename: &str)
     let mut results = HashMap::new();
 
     let mut uniprot_result = None;
-    let mut interpro_match = None;
+    let mut domain_match = None;
 
     for e in parser {
         match e.unwrap() {
@@ -210,13 +302,13 @@ fn parse(chado_uniprot_ids: &HashSet<String>, filename: &str)
                         uniprot_result = make_uniprot_result(chado_uniprot_ids, attributes);
                     },
                     "match" => {
-                        interpro_match = make_match(attributes);
+                        domain_match = make_match(attributes);
                     },
                     "ipr" => {
-                        add_ipr_to_match(interpro_match.as_mut().unwrap(), attributes);
+                        add_ipr_to_match(domain_match.as_mut().unwrap(), attributes);
                     },
                     "lcn" => {
-                        add_lcn_to_match(interpro_match.as_mut().unwrap(), attributes);
+                        add_lcn_to_match(domain_match.as_mut().unwrap(), attributes);
                     },
                     _ => (),
                 }
@@ -232,10 +324,9 @@ fn parse(chado_uniprot_ids: &HashSet<String>, filename: &str)
                     },
                     "match" => {
                         if let Some(ref mut uniprot_result) = uniprot_result {
-                            let interpro_matches =
-                                &mut uniprot_result.interpro_matches;
-                            interpro_matches.push(interpro_match.unwrap());
-                            interpro_match = None;
+                            let matches = &mut uniprot_result.interpro_matches;
+                            matches.push(domain_match.unwrap());
+                            domain_match = None;
                         }
                     },
                     _ => (),
@@ -287,9 +378,23 @@ fn main() {
 
     let conn = Connection::connect(connection_string.as_str(), TlsMode::None).unwrap();
 
-    let chado_uniprot_ids = get_chado_uniprot_ids(&conn);
+    let tmhmm_handle = make_tmhmm_thread(&conn);
 
-    let results = parse(&chado_uniprot_ids, &input_filename);
+    let chado_uniprot_ids = get_chado_uniprot_ids(&conn);
+    let mut results = parse(&chado_uniprot_ids, &input_filename);
+
+    let tmhmm_matches =
+        tmhmm_handle.join().expect("Failed to get TMHMM results");
+
+    for (uniprot_id, domain_match) in tmhmm_matches {
+        results.entry(uniprot_id.clone())
+            .or_insert(UniProtResult {
+                uniprot_id: uniprot_id.clone(),
+                interpro_matches: vec![],
+                tmhmm_matches: vec![],
+            })
+            .tmhmm_matches.extend(domain_match.into_iter());
+    }
 
     let s = serde_json::to_string(&results).unwrap();
     let f = File::create(output_filename).expect("Unable to open file");

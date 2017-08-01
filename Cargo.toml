@@ -1,6 +1,6 @@
 [package]
-name = "pombase-interpro"
-version = "0.1.0"
+name = "pombase-domain-process"
+version = "0.2.0"
 authors = ["Kim Rutherford <kmr44@cam.ac.uk>"]
 
 [dependencies]
@@ -10,3 +10,5 @@ serde = "1.0"
 serde_json = "1.0"
 serde_derive = "1.0"
 postgres = "0.14"
+tempfile = "2.1.6"
+regex = "0.*"
