@@ -37,14 +37,14 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 type UniProtId = String;
 
 #[derive(Serialize, Debug, Clone)]
-struct Location {
+struct LocationScore {
     start: usize,
     end: usize,
     score: f32,
 }
 
 #[derive(Serialize, Debug, Clone)]
-struct InterproMatch {
+struct InterProMatch {
     id: String,
     dbname: String,
     name: String,
@@ -53,7 +53,7 @@ struct InterproMatch {
     interpro_id: String,
     interpro_name: String,
     interpro_type: String,
-    locations: Vec<Location>,
+    locations: Vec<LocationScore>,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -65,7 +65,7 @@ struct TMMatch {
 #[derive(Serialize, Debug, Clone)]
 struct UniProtResult {
     uniprot_id: String,
-    interpro_matches: Vec<InterproMatch>,
+    interpro_matches: Vec<InterProMatch>,
     tmhmm_matches: Vec<TMMatch>,
 }
 
@@ -74,6 +74,7 @@ fn print_usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
+/// Return a HashSet of all the UniProt IDs of genes in Chado
 fn get_chado_uniprot_ids(conn: &Connection) -> HashSet<String> {
     let mut return_set = HashSet::new();
 
@@ -85,6 +86,9 @@ fn get_chado_uniprot_ids(conn: &Connection) -> HashSet<String> {
     return_set
 }
 
+/// Return a HashMap where the keys are the uniquenames of protein
+/// coding genes and the values are the corresponding protein
+/// sequence
 fn get_chado_prot_sequences(conn: &Connection) -> HashMap<String, String> {
     let mut ret = HashMap::new();
 
@@ -109,6 +113,8 @@ WHERE gt_rel.type_id IN (SELECT cvterm_id FROM cvterm WHERE name = 'part_of')
     ret
 }
 
+
+/// Write a FASTA file of sequences to the given Path
 fn write_prot_sequences(path: &Path, seq_map: &HashMap<String, String>) {
     let f = File::create(path).expect("Can't create protein sequence file");
     let mut writer = BufWriter::new(&f);
@@ -118,6 +124,11 @@ fn write_prot_sequences(path: &Path, seq_map: &HashMap<String, String>) {
     }
 }
 
+
+/// Fist connect to Postgres to read the UniProt IDs and protein sequences
+/// of all genes, then write them to a FASTA file.
+/// Next spawn a thread for running TMHMM on that file.
+/// We parse the results to make a map of TMMatches for each UniProt ID.
 fn make_tmhmm_thread(conn: &Connection) -> JoinHandle<HashMap<UniProtId, Vec<TMMatch>>> {
     let seq_map = get_chado_prot_sequences(conn);
     let tmpfile = NamedTempFile::new().unwrap();
@@ -157,7 +168,9 @@ fn make_tmhmm_thread(conn: &Connection) -> JoinHandle<HashMap<UniProtId, Vec<TMM
     })
 }
 
-fn add_ipr_to_match(domain_match: &mut InterproMatch, attributes: &Vec<OwnedAttribute>) {
+/// Add the InterPro name, ID and type from the current <match> element to
+/// the InterProMatch
+fn add_ipr_to_match(interpro_match: &mut InterProMatch, attributes: &Vec<OwnedAttribute>) {
     let mut interpro_id = None;
     let mut interpro_name = None;
     let mut interpro_type = None;
@@ -177,12 +190,14 @@ fn add_ipr_to_match(domain_match: &mut InterproMatch, attributes: &Vec<OwnedAttr
         }
     }
 
-    domain_match.interpro_id = interpro_id.unwrap();
-    domain_match.interpro_name = interpro_name.unwrap();
-    domain_match.interpro_type = interpro_type.unwrap();
+    interpro_match.interpro_id = interpro_id.unwrap();
+    interpro_match.interpro_name = interpro_name.unwrap();
+    interpro_match.interpro_type = interpro_type.unwrap();
 }
 
-fn add_lcn_to_match(domain_match: &mut InterproMatch, attributes: &Vec<OwnedAttribute>) {
+
+/// Add LocationScores to the match
+fn add_lcn_to_match(interpro_match: &mut InterProMatch, attributes: &Vec<OwnedAttribute>) {
     let mut start = None;
     let mut end = None;
     let mut score = None;
@@ -202,8 +217,8 @@ fn add_lcn_to_match(domain_match: &mut InterproMatch, attributes: &Vec<OwnedAttr
         }
     }
 
-    domain_match.locations
-        .push(Location {
+    interpro_match.locations
+        .push(LocationScore {
             start: start.unwrap(),
             end: end.unwrap(),
             score: score.unwrap(),
@@ -233,7 +248,10 @@ fn make_uniprot_result(chado_uniprot_ids: &HashSet<String>,
     }
 }
 
-fn make_match(attributes: &Vec<OwnedAttribute>) -> Option<InterproMatch> {
+
+/// Use the attributes to make an InterProMatch object.  The InterPro name,
+/// ID and type and the LocationScore objects will be added later.
+fn make_match(attributes: &Vec<OwnedAttribute>) -> Option<InterProMatch> {
     let mut id = None;
     let mut name = None;
     let mut dbname = None;
@@ -268,7 +286,7 @@ fn make_match(attributes: &Vec<OwnedAttribute>) -> Option<InterproMatch> {
     }
 
     if status.is_some() {
-        Some(InterproMatch {
+        Some(InterProMatch {
             id: id.unwrap(),
             dbname: dbname.unwrap(),
             name: name.unwrap(),
@@ -284,6 +302,9 @@ fn make_match(attributes: &Vec<OwnedAttribute>) -> Option<InterproMatch> {
     }
 }
 
+
+/// Parse an InterPro XML file.  Return a map from UniProt ID to struct
+/// containing its InterProMatches.
 fn parse(chado_uniprot_ids: &HashSet<String>, filename: &str)
          -> HashMap<String, UniProtResult>
 {
@@ -298,7 +319,7 @@ fn parse(chado_uniprot_ids: &HashSet<String>, filename: &str)
     let mut results = HashMap::new();
 
     let mut uniprot_result = None;
-    let mut domain_match = None;
+    let mut interpro_match = None;
 
     for e in parser {
         match e.unwrap() {
@@ -308,13 +329,13 @@ fn parse(chado_uniprot_ids: &HashSet<String>, filename: &str)
                         uniprot_result = make_uniprot_result(chado_uniprot_ids, attributes);
                     },
                     "match" => {
-                        domain_match = make_match(attributes);
+                        interpro_match = make_match(attributes);
                     },
                     "ipr" => {
-                        add_ipr_to_match(domain_match.as_mut().unwrap(), attributes);
+                        add_ipr_to_match(interpro_match.as_mut().unwrap(), attributes);
                     },
                     "lcn" => {
-                        add_lcn_to_match(domain_match.as_mut().unwrap(), attributes);
+                        add_lcn_to_match(interpro_match.as_mut().unwrap(), attributes);
                     },
                     _ => (),
                 }
@@ -331,8 +352,8 @@ fn parse(chado_uniprot_ids: &HashSet<String>, filename: &str)
                     "match" => {
                         if let Some(ref mut uniprot_result) = uniprot_result {
                             let matches = &mut uniprot_result.interpro_matches;
-                            matches.push(domain_match.unwrap());
-                            domain_match = None;
+                            matches.push(interpro_match.unwrap());
+                            interpro_match = None;
                         }
                     },
                     _ => (),
@@ -345,6 +366,8 @@ fn parse(chado_uniprot_ids: &HashSet<String>, filename: &str)
     results
 }
 
+/// Parse the InterPro XML and run TMHMM to create a JSON file for the PomBase
+/// front end to display.
 fn main() {
     print!("{} v{}\n", PKG_NAME, VERSION);
 
