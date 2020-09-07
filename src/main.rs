@@ -48,6 +48,7 @@ struct InterproMatch {
     id: String,
     dbname: String,
     name: String,
+    model: Option<String>,
     evidence: String,
     interpro_id: String,
     interpro_name: String,
@@ -238,6 +239,7 @@ fn make_match(attributes: &Vec<OwnedAttribute>) -> Option<InterproMatch> {
     let mut dbname = None;
     let mut status = None;
     let mut evidence = None;
+    let mut model = None;
 
     for attr in attributes {
         match &attr.name.local_name as &str {
@@ -256,6 +258,9 @@ fn make_match(attributes: &Vec<OwnedAttribute>) -> Option<InterproMatch> {
             "evd" => {
                 evidence = Some(attr.value.clone());
             },
+            "model" => {
+                model = Some(attr.value.clone());
+            }
             _ => {
                 panic!("unknown attribute name: {}", attr.name.local_name);
             }
@@ -267,6 +272,7 @@ fn make_match(attributes: &Vec<OwnedAttribute>) -> Option<InterproMatch> {
             id: id.unwrap(),
             dbname: dbname.unwrap(),
             name: name.unwrap(),
+            model: model,
             evidence: evidence.unwrap(),
             interpro_id: "".into(),
             interpro_name: "".into(),
