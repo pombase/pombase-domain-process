@@ -324,7 +324,7 @@ fn parse(chado_uniprot_ids: &HashSet<String>, filename: &str)
     for e in parser {
         match e.unwrap() {
             XmlEvent::StartElement { ref name, ref attributes, .. } => {
-                match &*name.local_name as &str {
+                match &name.local_name as &str {
                     "protein" => {
                         uniprot_result = make_uniprot_result(chado_uniprot_ids, attributes);
                     },
@@ -341,7 +341,7 @@ fn parse(chado_uniprot_ids: &HashSet<String>, filename: &str)
                 }
             },
             XmlEvent::EndElement { ref name, .. } => {
-                match &*name.local_name as &str {
+                match &name.local_name as &str {
                     "protein" => {
                         if let Some(finished_uniprot_result) = uniprot_result {
                             results.insert(finished_uniprot_result.uniprot_id.clone(),
