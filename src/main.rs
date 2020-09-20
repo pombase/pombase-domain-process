@@ -368,7 +368,7 @@ fn parse(chado_uniprot_ids: &HashSet<String>, filename: &str)
 
 /// Parse the InterPro XML and run TMHMM to create a JSON file for the PomBase
 /// front end to display.
-fn main() {
+fn main() -> Result<(), std::io::Error> {
     print!("{} v{}\n", PKG_NAME, VERSION);
 
     let args: Vec<String> = env::args().collect();
@@ -429,4 +429,6 @@ fn main() {
     let f = File::create(output_filename).expect("Unable to open file");
     let mut writer = BufWriter::new(&f);
     writer.write_all(s.as_bytes()).expect("Unable to write!");
+
+    Ok(())
 }
