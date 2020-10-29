@@ -4,3 +4,8 @@ Run with:
         -i <(gzip -d < match_complete.xml.gz) -o pombe_interpro_results.json
 
 in: /var/pomcur/sources/interpro/
+
+
+## Status
+
+![Tests](https://github.com/pombase/pombase-domain-process/workflows/Tests/badge.svg)
