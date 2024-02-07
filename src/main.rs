@@ -1,11 +1,9 @@
 extern crate getopts;
 extern crate postgres;
-extern crate xml;
 extern crate regex;
 
 extern crate serde;
 extern crate serde_json;
-#[macro_use]
 extern crate serde_derive;
 
 extern crate tempfile;
@@ -22,53 +20,19 @@ use tempfile::NamedTempFile;
 use std::fs::File;
 use std::path::Path;
 use std::io::{Write, BufReader, BufRead, BufWriter};
-use std::collections::hash_map::HashMap;
-use std::collections::HashSet;
-
-use xml::reader::{EventReader, XmlEvent};
-use xml::attribute::OwnedAttribute;
-use xml::ParserConfig;
+use std::collections::{HashMap,HashSet};
 
 use postgres::{Connection, TlsMode};
+
+extern crate domain_process;
+
+use domain_process::types::*;
+use domain_process::interpro_parse::parse;
 
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 type UniProtId = String;
-
-#[derive(Serialize, Debug, Clone)]
-struct LocationScore {
-    start: usize,
-    end: usize,
-    score: f32,
-}
-
-#[derive(Serialize, Debug, Clone)]
-struct InterProMatch {
-    id: String,
-    dbname: String,
-    name: String,
-    model: Option<String>,
-    evidence: String,
-    interpro_id: String,
-    interpro_name: String,
-    interpro_type: String,
-    locations: Vec<LocationScore>,
-}
-
-#[derive(Serialize, Debug, Clone)]
-struct TMMatch {
-    start: usize,
-    end: usize,
-}
-
-#[derive(Serialize, Debug, Clone)]
-struct UniProtResult {
-    uniprot_id: String,
-    interpro_matches: Vec<InterProMatch>,
-    tmhmm_matches: Vec<TMMatch>,
-}
-
 fn print_usage(program: &str, opts: Options) {
     let brief = format!("Usage: {} [options]", program);
     print!("{}", opts.usage(&brief));
@@ -168,203 +132,6 @@ fn make_tmhmm_thread(conn: &Connection) -> JoinHandle<HashMap<UniProtId, Vec<TMM
     })
 }
 
-/// Add the InterPro name, ID and type from the current <match> element to
-/// the InterProMatch
-fn add_ipr_to_match(interpro_match: &mut InterProMatch, attributes: &Vec<OwnedAttribute>) {
-    let mut interpro_id = None;
-    let mut interpro_name = None;
-    let mut interpro_type = None;
-
-    for attr in attributes {
-        match &attr.name.local_name as &str {
-            "id" => {
-                interpro_id = Some(attr.value.clone());
-            },
-            "name" => {
-                interpro_name = Some(attr.value.clone());
-            },
-            "type" => {
-                interpro_type = Some(attr.value.clone());
-            },
-            _ => (),
-        }
-    }
-
-    interpro_match.interpro_id = interpro_id.unwrap();
-    interpro_match.interpro_name = interpro_name.unwrap();
-    interpro_match.interpro_type = interpro_type.unwrap();
-}
-
-
-/// Add LocationScores to the match
-fn add_lcn_to_match(interpro_match: &mut InterProMatch, attributes: &Vec<OwnedAttribute>) {
-    let mut start = None;
-    let mut end = None;
-    let mut score = None;
-
-    for attr in attributes {
-        match &attr.name.local_name as &str {
-            "start" => {
-                start = Some(attr.value.parse::<usize>().unwrap());
-            },
-            "end" => {
-                end = Some(attr.value.parse::<usize>().unwrap());
-            },
-            "score" => {
-                score = Some(attr.value.parse::<f32>().unwrap());
-            },
-            _ => (),
-        }
-    }
-
-    interpro_match.locations
-        .push(LocationScore {
-            start: start.unwrap(),
-            end: end.unwrap(),
-            score: score.unwrap(),
-        });
-}
-
-fn make_uniprot_result(chado_uniprot_ids: &HashSet<String>,
-                       attributes: &Vec<OwnedAttribute>) -> Option<UniProtResult>
-{
-    let mut uniprot_id = None;
-
-    for attr in attributes {
-        if attr.name.local_name == "id" {
-            uniprot_id = Some(attr.value.clone());
-            break;
-        }
-    }
-
-    if chado_uniprot_ids.get(uniprot_id.as_ref().unwrap()).is_some() {
-        Some(UniProtResult {
-            uniprot_id: uniprot_id.unwrap(),
-            interpro_matches: vec![],
-            tmhmm_matches: vec![],
-        })
-    } else {
-        None
-    }
-}
-
-
-/// Use the attributes to make an InterProMatch object.  The InterPro name,
-/// ID and type and the LocationScore objects will be added later.
-fn make_match(attributes: &Vec<OwnedAttribute>) -> Option<InterProMatch> {
-    let mut id = None;
-    let mut name = None;
-    let mut dbname = None;
-    let mut status = None;
-    let mut evidence = None;
-    let mut model = None;
-
-    for attr in attributes {
-        match &attr.name.local_name as &str {
-            "id" => {
-                id = Some(attr.value.clone());
-            },
-            "name" => {
-                name = Some(attr.value.clone());
-            },
-            "dbname" => {
-                dbname = Some(attr.value.clone());
-            },
-            "status" => {
-                status = Some(attr.value.clone());
-            },
-            "evd" => {
-                evidence = Some(attr.value.clone());
-            },
-            "model" => {
-                model = Some(attr.value.clone());
-            }
-            _ => {
-                panic!("unknown attribute name: {}", attr.name.local_name);
-            }
-        }
-    }
-
-    if status.is_some() {
-        Some(InterProMatch {
-            id: id.unwrap(),
-            dbname: dbname.unwrap(),
-            name: name.unwrap(),
-            model: model,
-            evidence: evidence.unwrap(),
-            interpro_id: "".into(),
-            interpro_name: "".into(),
-            interpro_type: "".into(),
-            locations: vec![],
-        })
-    } else {
-        None
-    }
-}
-
-
-/// Parse an InterPro XML file.  Return a map from UniProt ID to struct
-/// containing its InterProMatches.
-fn parse(chado_uniprot_ids: &HashSet<String>, filename: &str)
-         -> HashMap<String, UniProtResult>
-{
-    let file = File::open(filename).unwrap();
-    let file = BufReader::new(file);
-    let parser = EventReader::new_with_config(file, ParserConfig {
-        trim_whitespace: true,
-        cdata_to_characters: true,
-        ..Default::default()
-    });
-
-    let mut results = HashMap::new();
-
-    let mut uniprot_result = None;
-    let mut interpro_match = None;
-
-    for e in parser {
-        match e.unwrap() {
-            XmlEvent::StartElement { ref name, ref attributes, .. } => {
-                match &name.local_name as &str {
-                    "protein" => {
-                        uniprot_result = make_uniprot_result(chado_uniprot_ids, attributes);
-                    },
-                    "match" => {
-                        interpro_match = make_match(attributes);
-                    },
-                    "ipr" => {
-                        add_ipr_to_match(interpro_match.as_mut().unwrap(), attributes);
-                    },
-                    "lcn" => {
-                        add_lcn_to_match(interpro_match.as_mut().unwrap(), attributes);
-                    },
-                    _ => (),
-                }
-            },
-            XmlEvent::EndElement { ref name, .. } => {
-                match &name.local_name as &str {
-                    "protein" => {
-                        if let Some(finished_uniprot_result) = uniprot_result {
-                            results.insert(finished_uniprot_result.uniprot_id.clone(),
-                                           finished_uniprot_result);
-                            uniprot_result = None;
-                        }
-                    },
-                    "match" => {
-                        if let Some(ref mut uniprot_result) = uniprot_result {
-                            let matches = &mut uniprot_result.interpro_matches;
-                            matches.push(interpro_match.unwrap());
-                            interpro_match = None;
-                        }
-                    },
-                    _ => (),
-                }
-            },
-            _ => ()
-        }
-    }
-
-    results
-}
 
 /// Parse the InterPro XML and run TMHMM to create a JSON file for the PomBase
 /// front end to display.
@@ -410,13 +177,13 @@ fn main() -> Result<(), std::io::Error> {
     let tmhmm_handle = make_tmhmm_thread(&conn);
 
     let chado_uniprot_ids = get_chado_uniprot_ids(&conn);
-    let mut results = parse(&chado_uniprot_ids, &input_filename);
+    let mut domain_data = parse(&chado_uniprot_ids, &input_filename);
 
     let tmhmm_matches =
         tmhmm_handle.join().expect("Failed to get TMHMM results");
 
     for (uniprot_id, domain_match) in tmhmm_matches {
-        results.entry(uniprot_id.clone())
+        domain_data.domains_by_id.entry(uniprot_id.clone())
             .or_insert(UniProtResult {
                 uniprot_id: uniprot_id.clone(),
                 interpro_matches: vec![],
@@ -425,7 +192,7 @@ fn main() -> Result<(), std::io::Error> {
             .tmhmm_matches.extend(domain_match.into_iter());
     }
 
-    let s = serde_json::to_string(&results).unwrap();
+    let s = serde_json::to_string(&domain_data).unwrap();
     let f = File::create(output_filename).expect("Unable to open file");
     let mut writer = BufWriter::new(&f);
     writer.write_all(s.as_bytes()).expect("Unable to write!");

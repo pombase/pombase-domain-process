@@ -3,6 +3,10 @@ name = "pombase-domain-process"
 version = "0.8.0"
 authors = ["Kim Rutherford <kmr44@cam.ac.uk>"]
 
+[lib]
+name = "domain_process"
+path = "src/process/lib.rs"
+
 [dependencies]
 getopts = "*"
 xml-rs = "0.4.0"
