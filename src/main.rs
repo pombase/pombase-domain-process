@@ -22,7 +22,7 @@ use std::path::Path;
 use std::io::{Write, BufReader, BufRead, BufWriter};
 use std::collections::{HashMap,HashSet};
 
-use postgres::{Connection, TlsMode};
+use postgres::{Client, NoTls};
 
 extern crate domain_process;
 
@@ -39,7 +39,7 @@ fn print_usage(program: &str, opts: Options) {
 }
 
 /// Return a HashSet of all the UniProt IDs of genes in Chado
-fn get_chado_uniprot_ids(conn: &Connection) -> HashSet<String> {
+fn get_chado_uniprot_ids(conn: &mut Client) -> HashSet<String> {
     let mut return_set = HashSet::new();
 
     for row in &conn.query("select value from featureprop p join cvterm t on p.type_id = t.cvterm_id where name = 'uniprot_identifier'", &[]).unwrap() {
@@ -53,7 +53,7 @@ fn get_chado_uniprot_ids(conn: &Connection) -> HashSet<String> {
 /// Return a HashMap where the keys are the uniquenames of protein
 /// coding genes and the values are the corresponding protein
 /// sequence
-fn get_chado_prot_sequences(conn: &Connection) -> HashMap<String, String> {
+fn get_chado_prot_sequences(conn: &mut Client) -> HashMap<String, String> {
     let mut ret = HashMap::new();
 
     for row in &conn.query("
@@ -93,7 +93,7 @@ fn write_prot_sequences(path: &Path, seq_map: &HashMap<String, String>) {
 /// of all genes, then write them to a FASTA file.
 /// Next spawn a thread for running TMHMM on that file.
 /// We parse the results to make a map of TMMatches for each UniProt ID.
-fn make_tmhmm_thread(conn: &Connection) -> JoinHandle<HashMap<UniProtId, Vec<TMMatch>>> {
+fn make_tmhmm_thread(conn: &mut Client) -> JoinHandle<HashMap<UniProtId, Vec<TMMatch>>> {
     let seq_map = get_chado_prot_sequences(conn);
     let tmpfile = NamedTempFile::new().unwrap();
     write_prot_sequences(tmpfile.path(), &seq_map);
@@ -172,11 +172,11 @@ fn main() -> Result<(), std::io::Error> {
     let input_filename = matches.opt_str("i").unwrap();
     let output_filename = matches.opt_str("o").unwrap();
 
-    let conn = Connection::connect(connection_string.as_str(), TlsMode::None).unwrap();
+    let mut conn = Client::connect(connection_string.as_str(), NoTls).unwrap();
 
-    let tmhmm_handle = make_tmhmm_thread(&conn);
+    let tmhmm_handle = make_tmhmm_thread(&mut conn);
 
-    let chado_uniprot_ids = get_chado_uniprot_ids(&conn);
+    let chado_uniprot_ids = get_chado_uniprot_ids(&mut conn);
     let mut domain_data = parse(&chado_uniprot_ids, &input_filename);
 
     let tmhmm_matches =
