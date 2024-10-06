@@ -1,0 +1,10 @@
+SPAC13G6.15c.1:pep	3e384f1f8cb0c23464a589559bd6892c	163	MobiDBLite	mobidb-lite	consensus disorder prediction	142	163	-	T	26-09-2024	-	-	-	-
+SPAC13G6.15c.1:pep	3e384f1f8cb0c23464a589559bd6892c	163	PANTHER	PTHR10300	CALCIPRESSIN	7	153	6.8E-18	T	26-09-2024	IPR006931	Calcipressin	-	-
+SPAC13G6.15c.1:pep	3e384f1f8cb0c23464a589559bd6892c	163	Pfam	PF04847	Calcipressin	6	143	2.4E-14	T	26-09-2024	IPR006931	Calcipressin	-	-
+SPBC56F2.10c.1:pep	1348925e1231a87b6524f7ef1369cece	322	Pfam	PF00535	Glycosyl transferase family 2	65	248	1.1E-25	T	26-09-2024	IPR001173	Glycosyltransferase 2-like	-	-
+SPBC56F2.10c.1:pep	1348925e1231a87b6524f7ef1369cece	322	PANTHER	PTHR10859	GLYCOSYL TRANSFERASE	7	314	2.4E-92	T	26-09-2024	-	-	-	-
+SPBC56F2.10c.1:pep	1348925e1231a87b6524f7ef1369cece	322	Gene3D	G3DSA:3.90.550.10	Spore Coat Polysaccharide Biosynthesis Protein SpsA; Chain A	43	318	1.6E-36	T	26-09-2024	IPR029044	Nucleotide-diphospho-sugar transferases	-	-
+SPBC56F2.10c.1:pep	1348925e1231a87b6524f7ef1369cece	322	CDD	cd04188	DPG_synthase	66	287	3.90202E-104	T	26-09-2024	IPR035518	Dolichyl-phosphate beta-glucosyltransferase	-	-
+SPBC56F2.10c.1:pep	1348925e1231a87b6524f7ef1369cece	322	SUPERFAMILY	SSF53448	Nucleotide-diphospho-sugar transferases	57	313	9.38E-37	T	26-09-2024	IPR029044	Nucleotide-diphospho-sugar transferases	-	-
+SPBC1718.07c.1:pep	de8b11899e677a78f30bed4d3f186adb	404	ProSiteProfiles	PS50103	Zinc finger C3H1-type profile.	326	354	17.253035	T	26-09-2024	IPR000571	Zinc finger, CCCH-type	-	-
+SPBC1718.07c.1:pep	de8b11899e677a78f30bed4d3f186adb	404	PANTHER	PTHR12547	CCCH ZINC FINGER/TIS11-RELATED	112	396	3.6E-23	T	26-09-2024	IPR045877	RNA-binding protein ZFP36-like	-	-
