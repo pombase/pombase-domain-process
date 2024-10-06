@@ -1,24 +1,50 @@
 
-use std::collections::HashMap;
+use std::{cmp::Ordering, collections::HashMap, hash::{Hash, Hasher}};
 
 #[derive(Serialize, Debug, Clone)]
-pub struct LocationScore {
+pub struct Location {
     pub start: usize,
     pub end: usize,
-    pub score: f32,
 }
+
+impl PartialEq for Location {
+    fn eq(&self, other: &Location) -> bool {
+        self.start == other.start && self.end == other.end
+    }
+}
+impl Eq for Location { }
+impl Ord for Location {
+    fn cmp(&self, other: &Location) -> Ordering {
+        let start_cmp = self.start.cmp(&other.start);
+
+        if start_cmp == Ordering::Equal {
+            self.end.cmp(&other.end)
+        } else {
+            start_cmp
+        }
+    }
+}
+ impl PartialOrd for Location {
+     fn partial_cmp(&self, other: &Location) -> Option<Ordering> {
+         Some(self.cmp(other))
+     }
+ }
+ impl Hash for Location {
+     fn hash<H: Hasher>(&self, state: &mut H) {
+         self.start.hash(state);
+         self.end.hash(state);
+     }
+ }
+
 
 #[derive(Serialize, Debug, Clone)]
 pub struct InterProMatch {
     pub id: String,
     pub dbname: String,
     pub name: String,
-    pub model: Option<String>,
-    pub evidence: String,
     pub interpro_id: String,
     pub interpro_name: String,
-    pub interpro_type: String,
-    pub locations: Vec<LocationScore>,
+    pub locations: Vec<Location>,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -28,8 +54,8 @@ pub struct TMMatch {
 }
 
 #[derive(Serialize, Debug, Clone)]
-pub struct UniProtResult {
-    pub uniprot_id: String,
+pub struct GeneMatches {
+    pub gene_uniquename: String,
     pub interpro_matches: Vec<InterProMatch>,
     pub tmhmm_matches: Vec<TMMatch>,
 }
@@ -37,5 +63,5 @@ pub struct UniProtResult {
 #[derive(Serialize, Debug, Clone)]
 pub struct DomainData {
     pub interpro_version: String,
-    pub domains_by_id: HashMap<String, UniProtResult>,
+    pub domains_by_id: HashMap<String, GeneMatches>,
 }

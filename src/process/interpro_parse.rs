@@ -1,255 +1,121 @@
-extern crate xml;
-
-use self::xml::reader::{EventReader, XmlEvent};
-use self::xml::attribute::OwnedAttribute;
-use self::xml::ParserConfig;
-
-use std::collections::{HashMap,HashSet};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 
-use types::*;
+use csv;
 
-/// Add the InterPro name, ID and type from the current <match> element to
-/// the InterProMatch
-fn add_ipr_to_match(interpro_match: &mut InterProMatch, attributes: &Vec<OwnedAttribute>) {
-    let mut interpro_id = None;
-    let mut interpro_name = None;
-    let mut interpro_type = None;
+use crate::types::{GeneMatches, InterProMatch, Location};
 
-    for attr in attributes {
-        match &attr.name.local_name as &str {
-            "id" => {
-                interpro_id = Some(attr.value.clone());
-            },
-            "name" => {
-                interpro_name = Some(attr.value.clone());
-            },
-            "type" => {
-                interpro_type = Some(attr.value.clone());
-            },
-            _ => (),
-        }
-    }
-
-    interpro_match.interpro_id = interpro_id.unwrap();
-    interpro_match.interpro_name = interpro_name.unwrap();
-    interpro_match.interpro_type = interpro_type.unwrap();
+#[derive(Debug, Deserialize)]
+pub struct InterProtRow {
+    pub protein_id: String,
+    pub md5: String,
+    pub seq_len: String,
+    pub analysis: String,
+    pub signature_accession: String,
+    pub signature_description: String,
+    pub start: String,
+    pub end: String,
+    pub score: String,
+    pub status: String,
+    pub date: String,
+    pub interpro_accession: String,
+    pub interpro_description: String,
+    pub go_annotations: String,
+    pub pathways_annotations: String,
 }
 
 
-/// Add LocationScores to the match
-fn add_lcn_to_match(interpro_match: &mut InterProMatch, attributes: &Vec<OwnedAttribute>) {
-    let mut start = None;
-    let mut end = None;
-    let mut score = None;
-
-    for attr in attributes {
-        match &attr.name.local_name as &str {
-            "start" => {
-                start = Some(attr.value.parse::<usize>().unwrap());
-            },
-            "end" => {
-                end = Some(attr.value.parse::<usize>().unwrap());
-            },
-            "score" => {
-                score = Some(attr.value.parse::<f32>().unwrap());
-            },
-            _ => (),
-        }
-    }
-
-    interpro_match.locations
-        .push(LocationScore {
-            start: start.unwrap(),
-            end: end.unwrap(),
-            score: score.unwrap(),
-        });
-}
-
-
-fn make_uniprot_result(chado_uniprot_ids: &HashSet<String>,
-                       attributes: &Vec<OwnedAttribute>) -> Option<UniProtResult>
-{
-    let mut uniprot_id = None;
-
-    for attr in attributes {
-        if attr.name.local_name == "id" {
-            uniprot_id = Some(attr.value.clone());
-            break;
-        }
-    }
-
-    if chado_uniprot_ids.get(uniprot_id.as_ref().unwrap()).is_some() {
-        Some(UniProtResult {
-            uniprot_id: uniprot_id.unwrap(),
-            interpro_matches: vec![],
-            tmhmm_matches: vec![],
-        })
-    } else {
-        None
-    }
-}
-
-
-/// Use the attributes to make an InterProMatch object.  The InterPro name,
-/// ID and type and the LocationScore objects will be added later.
-fn make_match(attributes: &Vec<OwnedAttribute>) -> Option<InterProMatch> {
-    let mut id = None;
-    let mut name = None;
-    let mut dbname = None;
-    let mut status = None;
-    let mut evidence = None;
-    let mut model = None;
-
-    for attr in attributes {
-        match &attr.name.local_name as &str {
-            "id" => {
-                id = Some(attr.value.clone());
-            },
-            "name" => {
-                name = Some(attr.value.clone());
-            },
-            "dbname" => {
-                dbname = Some(attr.value.clone());
-            },
-            "status" => {
-                status = Some(attr.value.clone());
-            },
-            "evd" => {
-                evidence = Some(attr.value.clone());
-            },
-            "model" => {
-                model = Some(attr.value.clone());
-            }
-            _ => {
-                panic!("unknown attribute name: {}", attr.name.local_name);
-            }
-        }
-    }
-
-    if status.is_some() {
-        Some(InterProMatch {
-            id: id.unwrap(),
-            dbname: dbname.unwrap(),
-            name: name.unwrap(),
-            model: model,
-            evidence: evidence.unwrap(),
-            interpro_id: "".into(),
-            interpro_name: "".into(),
-            interpro_type: "".into(),
-            locations: vec![],
-        })
-    } else {
-        None
-    }
-}
-
-
-/// Parse a <dbinfo> element and return the version attribute if
-/// the dbname is "INTERPRO"
-fn get_version(attributes: &Vec<OwnedAttribute>) -> Option<String> {
-    let mut dbname = None;
-    let mut version = None;
-
-    for attr in attributes {
-        match &attr.name.local_name as &str {
-            "dbname" => dbname = Some(attr.value.clone()),
-            "version" => version = Some(attr.value.clone()),
-            _ => (),
-        }
-    }
-
-    if let Some(ref dbname) = dbname {
-        if dbname != "INTERPRO" {
-            return None;
-        }
-    } else {
-        panic!("missing dbname attribute in <dbinfo> element");
-    }
-
-    if let Some(version) = version {
-        Some(version)
-    } else {
-        panic!("missing version attribute in <dbinfo> element");
-    }
-}
-
-
-/// Parse an InterPro XML file.  Return a map from UniProt ID to struct
+/// Parse an InterPro TSV file.  Return a map from UniProt ID to struct
 /// containing its InterProMatches.
-pub fn parse(chado_uniprot_ids: &HashSet<String>, filename: &str)
-         -> DomainData
+pub fn parse(filename: &str)
+         -> HashMap<String, GeneMatches>
 {
     let file = File::open(filename).unwrap();
     let file = BufReader::new(file);
-    let parser = EventReader::new_with_config(file, ParserConfig {
-        trim_whitespace: true,
-        cdata_to_characters: true,
-        ..Default::default()
-    });
 
-    let mut domains_by_id = HashMap::new();
+    let mut reader = csv::ReaderBuilder::new()
+        .has_headers(false)
+        .delimiter(b'\t')
+        .from_reader(Box::new(file));
 
-    let mut uniprot_result = None;
-    let mut interpro_match = None;
-    let mut interpro_version = None;
+    let headers = csv::StringRecord::from(vec![
+        "protein_id",
+        "md5",
+        "seq_len",
+        "analysis",
+        "signature_accession",
+        "signature_description",
+        "start",
+        "end",
+        "score",
+        "status",
+        "date",
+        "interpro_accession",
+        "interpro_description",
+        "go_annotations",
+        "pathways_annotations",
+    ]);
 
-    for e in parser {
-        match e.unwrap() {
-            XmlEvent::StartElement { ref name, ref attributes, .. } => {
-                match &name.local_name as &str {
-                    "protein" => {
-                        uniprot_result = make_uniprot_result(chado_uniprot_ids, attributes);
-                    },
-                    "match" => {
-                        interpro_match = make_match(attributes);
-                    },
-                    "ipr" => {
-                        add_ipr_to_match(interpro_match.as_mut().unwrap(), attributes);
-                    },
-                    "lcn" => {
-                        add_lcn_to_match(interpro_match.as_mut().unwrap(), attributes);
-                    },
-                    "dbinfo" => {
-                        if interpro_version.is_none() {
-                            if let Some(parsed_interpro_version) = get_version(attributes)
-                            {
-                                interpro_version = Some(parsed_interpro_version);
-                            }
-                        }
-                    },
-                    _ => (),
-                }
-            },
-            XmlEvent::EndElement { ref name, .. } => {
-                match &name.local_name as &str {
-                    "protein" => {
-                        if let Some(finished_uniprot_result) = uniprot_result {
-                            domains_by_id.insert(finished_uniprot_result.uniprot_id.clone(),
-                                           finished_uniprot_result);
-                            uniprot_result = None;
-                        }
-                    },
-                    "match" => {
-                        if let Some(ref mut uniprot_result) = uniprot_result {
-                            let matches = &mut uniprot_result.interpro_matches;
-                            matches.push(interpro_match.unwrap());
-                            interpro_match = None;
-                        }
-                    },
-                    _ => (),
-                }
-            },
-            _ => ()
+    let mut match_map = HashMap::new();
+
+    for record in reader.records() {
+        let mut record: InterProtRow = record.unwrap().deserialize(Some(&headers)).unwrap();
+
+        if record.signature_description == "-" {
+           record.signature_description = "".into();
+        }
+        if record.interpro_accession == "-" {
+           record.interpro_accession = "".into();
+        }
+        if record.interpro_description == "-" {
+           record.interpro_description = "".into();
+        }
+
+        let gene_uniquename = record.protein_id.replace(".1:pep", "");
+
+        let match_id = record.signature_accession.clone();
+
+        match_map
+            .entry(gene_uniquename)
+            .or_insert_with(HashMap::new)
+            .entry(match_id)
+            .or_insert_with(|| InterProMatch {
+                id: record.signature_accession.clone(),
+                dbname: record.analysis.clone(),
+                name: record.signature_description.clone(),
+                interpro_id: record.interpro_accession.clone(),
+                interpro_name: record.interpro_description.clone(),
+                locations: vec![],
+            })
+            .locations
+            .push(Location {
+                start: record.start.parse::<usize>().unwrap(),
+                end: record.end.parse::<usize>().unwrap(),
+            });
+    }
+
+    let mut results = HashMap::new();
+
+    for (gene_uniquename, domains_by_id) in match_map.into_iter() {
+        for mut interpro_match in domains_by_id.into_values() {
+            interpro_match.locations.sort();
+            results
+                .entry(gene_uniquename.clone())
+                .or_insert_with(|| GeneMatches {
+                    gene_uniquename: gene_uniquename.clone(),
+                    interpro_matches: vec![],
+                    tmhmm_matches: vec![],
+                })
+                .interpro_matches
+                .push(interpro_match);
+        }
+
+        if let Some(ref mut gene_matches) = results.get_mut(&gene_uniquename) {
+            gene_matches.interpro_matches
+                .sort_by(|a, b| { a.dbname.cmp(&b.dbname) });
         }
     }
 
-    let interpro_version =
-        interpro_version.expect("failing to find a <dbinfo> element where dbname=\"INTERPRO\"");
-
-    DomainData {
-        interpro_version,
-        domains_by_id,
-    }
+    results
 }

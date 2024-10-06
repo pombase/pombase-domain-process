@@ -1,26 +1,23 @@
-use std::collections::HashSet;
-
 extern crate domain_process;
 
 use domain_process::interpro_parse::parse;
 
 #[test]
-fn test_xml_parse() {
-    let mut ids = HashSet::new();
+fn test_parse() {
 
-    ids.insert("A0A001".into());
+    let result = parse("tests/small_matches.tsv");
 
-    let result = parse(&ids, "tests/small_matches.tidy.xml");
+    let spbc56f2_10c = result.get("SPBC56F2.10c").unwrap();
+    assert_eq!(spbc56f2_10c.gene_uniquename, "SPBC56F2.10c");
 
-    assert_eq!(result.interpro_version, "63.0");
+    for m in &spbc56f2_10c.interpro_matches {
+        eprintln!("{} {}", m.id, m.dbname);
+    }
 
-    let a0a001 = result.domains_by_id.get("A0A001").unwrap();
-    assert_eq!(a0a001.uniprot_id, "A0A001");
+    let interpro_match = spbc56f2_10c.interpro_matches.get(0).unwrap();
+    assert_eq!(interpro_match.dbname, "CDD");
+    assert_eq!(interpro_match.id, "cd04188");
 
-    let gene3d_match = a0a001.interpro_matches.get(0).unwrap();
-    assert_eq!(gene3d_match.id, "G3DSA:1.20.1560.10");
-    assert_eq!(gene3d_match.dbname, "GENE3D");
-
-    let gene3d_locations = &gene3d_match.locations;
-    assert_eq!(gene3d_locations.get(0).unwrap().end, 301);
+    let prositeprofiles_locations = &interpro_match.locations;
+    assert_eq!(prositeprofiles_locations.get(0).unwrap().end, 287);
 }
