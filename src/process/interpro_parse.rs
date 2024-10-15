@@ -7,7 +7,7 @@ use csv;
 use crate::types::{GeneMatches, InterProMatch, Location};
 
 #[derive(Debug, Deserialize)]
-pub struct InterProtRow {
+pub struct InterProRow {
     pub protein_id: String,
     pub md5: String,
     pub seq_len: String,
@@ -60,7 +60,7 @@ pub fn parse(filename: &str)
     let mut match_map = HashMap::new();
 
     for record in reader.records() {
-        let mut record: InterProtRow = record.unwrap().deserialize(Some(&headers)).unwrap();
+        let mut record: InterProRow = record.unwrap().deserialize(Some(&headers)).unwrap();
 
         if record.signature_description == "-" {
            record.signature_description = "".into();
