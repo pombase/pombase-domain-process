@@ -5,19 +5,23 @@ use domain_process::interpro_parse::parse;
 #[test]
 fn test_parse() {
 
-    let result = parse("tests/small_matches.tsv");
+    let (interproscan_version, matches) = parse("tests/small_matches.json");
 
-    let spbc56f2_10c = result.get("SPBC56F2.10c").unwrap();
-    assert_eq!(spbc56f2_10c.gene_uniquename, "SPBC56F2.10c");
+    assert_eq!(interproscan_version, "5.69-101.0");
 
-    for m in &spbc56f2_10c.interpro_matches {
-        eprintln!("{} {}", m.id, m.dbname);
-    }
+    let spac13g6_15c = matches.get("SPAC13G6.15c").unwrap();
+    assert_eq!(spac13g6_15c.gene_uniquename, "SPAC13G6.15c");
 
-    let interpro_match = spbc56f2_10c.interpro_matches.get(0).unwrap();
-    assert_eq!(interpro_match.dbname, "CDD");
-    assert_eq!(interpro_match.id, "cd04188");
+    let mobidb_match = spac13g6_15c.interpro_matches.get(0).unwrap();
+    assert_eq!(mobidb_match.dbname, "MOBIDB_LITE");
+    assert_eq!(mobidb_match.id, "mobidb-lite");
 
-    let prositeprofiles_locations = &interpro_match.locations;
-    assert_eq!(prositeprofiles_locations.get(0).unwrap().end, 287);
+    let mobidb_locations = &mobidb_match.locations;
+    assert_eq!(mobidb_locations.get(0).unwrap().end, 163);
+
+    let panther_match = spac13g6_15c.interpro_matches.get(1).unwrap();
+    assert_eq!(panther_match.dbname, "PANTHER");
+    assert_eq!(panther_match.id, "PTHR10300");
+
+    assert_eq!(panther_match.locations[0].end, 153);
 }

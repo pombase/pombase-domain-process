@@ -79,9 +79,6 @@ fn main() -> Result<(), std::io::Error> {
     let mut opts = Options::new();
 
     opts.optflag("h", "help", "print this help message");
-    opts.optopt("v", "interproscna-version-string",
-                "The InterProScan version the created the input file",
-                "INTERPRO-VERSION");
     opts.optopt("p", "postgresql-connection-string",
                 "PostgresSQL connection string like: postgres://user:pass@host/db_name",
                 "CONN_STR");
@@ -108,12 +105,11 @@ fn main() -> Result<(), std::io::Error> {
         process::exit(1);
     }
 
-    let interpro_version = matches.opt_str("v").unwrap();
     let protein_filename = matches.opt_str("p").unwrap();
     let input_filename = matches.opt_str("i").unwrap();
     let output_filename = matches.opt_str("o").unwrap();
 
-    let mut domains_by_id = parse(&input_filename);
+    let (interproscan_version, mut domains_by_id) = parse(&input_filename);
     let tmhmm_handle = make_tmhmm_thread(&protein_filename);
 
     let tmhmm_matches =
@@ -131,7 +127,7 @@ fn main() -> Result<(), std::io::Error> {
     }
 
     let domain_data = DomainData {
-        interpro_version,
+        interproscan_version,
         domains_by_id,
     };
 

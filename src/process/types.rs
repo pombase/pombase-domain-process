@@ -41,9 +41,11 @@ impl Ord for Location {
 pub struct InterProMatch {
     pub id: String,
     pub dbname: String,
-    pub name: String,
+    pub name: Option<String>,
+    pub description: Option<String>,
     pub interpro_id: String,
     pub interpro_name: String,
+    pub interpro_description: String,
     pub locations: Vec<Location>,
 }
 
@@ -62,6 +64,6 @@ pub struct GeneMatches {
 
 #[derive(Serialize, Debug, Clone)]
 pub struct DomainData {
-    pub interpro_version: String,
+    pub interproscan_version: String,
     pub domains_by_id: HashMap<String, GeneMatches>,
 }

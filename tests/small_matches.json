@@ -1,0 +1,92 @@
+{
+  "interproscan-version": "5.69-101.0",
+  "results": [
+    {
+      "sequence": "MLVFTTSPDHVDELNEFVQQLNPVAFTRVLRGLGKVLASYNDKAVEEDTLKKSSTGSLPSGQQVHCQYVLDDPNHVEGISVDQSLQVPKFEKNWLISPPGSPPVGWEPIVEESPNSQHLAHDIQLKLDELGNALLNDHSAGPQIVISEHNNTKETSPSRQFEH",
+      "md5": "3e384f1f8cb0c23464a589559bd6892c",
+      "matches": [
+        {
+          "signature": {
+            "accession": "mobidb-lite",
+            "name": "disorder_prediction",
+            "description": "consensus disorder prediction",
+            "signatureLibraryRelease": {
+              "library": "MOBIDB_LITE",
+              "version": "2.0"
+            },
+            "entry": null
+          },
+          "locations": [
+            {
+              "start": 142,
+              "end": 163,
+              "representative": false,
+              "location-fragments": [
+                {
+                  "start": 142,
+                  "end": 163,
+                  "dc-status": "CONTINUOUS"
+                }
+              ],
+              "sequence-feature": ""
+            }
+          ],
+          "model-ac": "mobidb-lite"
+        },
+        {
+          "signature": {
+            "accession": "PTHR10300",
+            "name": "CALCIPRESSIN",
+            "description": null,
+            "signatureLibraryRelease": {
+              "library": "PANTHER",
+              "version": "18.0"
+            },
+            "entry": {
+              "accession": "IPR006931",
+              "name": "Calcipressin",
+              "description": "Calcipressin",
+              "type": "FAMILY",
+              "goXRefs": [],
+              "pathwayXRefs": []
+            }
+          },
+          "locations": [
+            {
+              "start": 7,
+              "end": 153,
+              "representative": false,
+              "hmmStart": 35,
+              "hmmEnd": 179,
+              "hmmLength": 0,
+              "hmmBounds": "INCOMPLETE",
+              "envelopeStart": 2,
+              "envelopeEnd": 162,
+              "location-fragments": [
+                {
+                  "start": 7,
+                  "end": 153,
+                  "dc-status": "CONTINUOUS"
+                }
+              ]
+            }
+          ],
+          "accession": "PTHR10300:SF14",
+          "name": "PROTEIN SARAH",
+          "evalue": 6.8e-18,
+          "score": 76.8,
+          "proteinClass": "PC00207",
+          "graftPoint": "SCHPO|PomBase=SPAC13G6.15c|UniProtKB=Q09791",
+          "goXRefs": [],
+          "model-ac": "PTHR10300:SF14"
+        }
+      ],
+      "xref": [
+        {
+          "name": "SPAC13G6.15c.1:pep rcn1|serine/threonine protein phosphatase (calcipressin) regulatory subunit Rcn1",
+          "id": "SPAC13G6.15c.1:pep"
+        }
+      ]
+    }
+  ]
+}

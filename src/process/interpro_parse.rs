@@ -2,97 +2,164 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 
-use csv;
-
 use crate::types::{GeneMatches, InterProMatch, Location};
 
 #[derive(Debug, Deserialize)]
-pub struct InterProRow {
-    pub protein_id: String,
-    pub md5: String,
-    pub seq_len: String,
-    pub analysis: String,
-    pub signature_accession: String,
-    pub signature_description: String,
-    pub start: String,
-    pub end: String,
-    pub score: String,
-    pub status: String,
-    pub date: String,
-    pub interpro_accession: String,
-    pub interpro_description: String,
-    pub go_annotations: String,
-    pub pathways_annotations: String,
+pub struct InterProScanOutput {
+    #[serde(rename = "interproscan-version")]
+    pub interproscan_version: String,
+    pub results: Vec<InterProScanResult>,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct InterProScanResult {
+    pub matches: Vec<InterProScanMatch>,
+    pub xref: Vec<InterProScanXref>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InterProScanMatch {
+    pub signature: InterProScanSignature,
+    pub locations: Vec<InterProScanLocation>,
+    #[serde(rename = "model-ac")]
+    pub model_ac: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InterProScanSignature {
+    pub accession: String,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    #[serde(rename = "signatureLibraryRelease")]
+    pub library_release: InterProScanSignatureLibraryRelease,
+    pub entry: Option<InterProScanEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InterProScanLocation {
+    pub start: usize,
+    pub end: usize,
+    #[serde(rename = "sequence-feature")]
+    pub sequence_feature: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InterProScanSignatureLibraryRelease {
+    pub library: String,
+    pub version: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InterProScanXref {
+    pub id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InterProScanEntry {
+    pub accession: String,
+    pub name: String,
+    pub description: String,
+    #[serde(rename = "type")]
+    pub entry_type: String,
+}
+
+pub type VersionString = String;
 
 
 /// Parse an InterPro TSV file.  Return a map from UniProt ID to struct
 /// containing its InterProMatches.
 pub fn parse(filename: &str)
-         -> HashMap<String, GeneMatches>
+         -> (VersionString, HashMap<String, GeneMatches>)
 {
-    let file = File::open(filename).unwrap();
-    let file = BufReader::new(file);
-
-    let mut reader = csv::ReaderBuilder::new()
-        .has_headers(false)
-        .delimiter(b'\t')
-        .from_reader(Box::new(file));
-
-    let headers = csv::StringRecord::from(vec![
-        "protein_id",
-        "md5",
-        "seq_len",
-        "analysis",
-        "signature_accession",
-        "signature_description",
-        "start",
-        "end",
-        "score",
-        "status",
-        "date",
-        "interpro_accession",
-        "interpro_description",
-        "go_annotations",
-        "pathways_annotations",
-    ]);
-
-    let mut match_map = HashMap::new();
-
-    for record in reader.records() {
-        let mut record: InterProRow = record.unwrap().deserialize(Some(&headers)).unwrap();
-
-        if record.signature_description == "-" {
-           record.signature_description = "".into();
+    let file = match File::open(filename) {
+        Ok(file) => file,
+        Err(err) => {
+            panic!("Failed to read {}: {}\n", filename, err)
         }
-        if record.interpro_accession == "-" {
-           record.interpro_accession = "".into();
+    };
+
+    let reader = BufReader::new(file);
+
+    let interproscan_output: InterProScanOutput =
+        match serde_json::from_reader(reader) {
+            Ok(config) => config,
+            Err(err) => {
+                panic!("failed to parse {}: {}", filename, err)
+            },
+        };
+
+    let mut match_map: HashMap<String, HashMap<String, InterProMatch>> = HashMap::new();
+
+    for result in interproscan_output.results.into_iter() {
+        for interpro_match in result.matches.into_iter() {
+
+            let gene_uniquename = result.xref.get(0).unwrap().id.replace(".1:pep", "");
+
+            let first_location = &interpro_match.locations[0];
+            let sequence_feature_str =
+                if let Some(ref sequence_feature) = first_location.sequence_feature {
+                    if sequence_feature.len() > 0 {
+                        format!("-{}", sequence_feature.replace(" ", "-"))
+                    } else {
+                        "".into()
+                    }
+                } else {
+                    "".into()
+                };
+
+            let match_id = format!("{}{}", interpro_match.signature.accession,
+                                   sequence_feature_str);
+
+            let locations: Vec<_> = interpro_match.locations.iter()
+                .map(|loc| {
+                    Location {
+                        start: loc.start,
+                        end: loc.end,
+                    }
+                })
+                .collect();
+
+            match_map
+                .entry(gene_uniquename)
+                .or_insert_with(HashMap::new)
+                .entry(match_id.clone())
+                .or_insert_with(|| {
+                    let signature = &interpro_match.signature;
+                    let dbname = format!("{}{}", signature.library_release.library,
+                                         sequence_feature_str);
+                    let interpro_id =
+                        if let Some(ref entry) = signature.entry {
+                            entry.accession.clone()
+                        } else {
+                            "".into()
+                        };
+                    let interpro_name =
+                        if let Some(ref entry) = signature.entry {
+                            entry.name.clone()
+                        } else {
+                            "".into()
+                        };
+                    let interpro_description =
+                        if let Some(ref entry) = signature.entry {
+                            entry.description.clone()
+                        } else {
+                            "".into()
+                        };
+                    InterProMatch {
+                        id: match_id.clone(),
+                        dbname,
+                        name: signature.name.clone(),
+                        description: signature.description.clone(),
+                        interpro_id,
+                        interpro_name,
+                        interpro_description,
+                        locations: vec![],
+                    }
+                })
+                .locations
+                .extend(locations.clone().into_iter());
         }
-        if record.interpro_description == "-" {
-           record.interpro_description = "".into();
-        }
 
-        let gene_uniquename = record.protein_id.replace(".1:pep", "");
-
-        let match_id = record.signature_accession.clone();
-
-        match_map
-            .entry(gene_uniquename)
-            .or_insert_with(HashMap::new)
-            .entry(match_id)
-            .or_insert_with(|| InterProMatch {
-                id: record.signature_accession.clone(),
-                dbname: record.analysis.clone(),
-                name: record.signature_description.clone(),
-                interpro_id: record.interpro_accession.clone(),
-                interpro_name: record.interpro_description.clone(),
-                locations: vec![],
-            })
-            .locations
-            .push(Location {
-                start: record.start.parse::<usize>().unwrap(),
-                end: record.end.parse::<usize>().unwrap(),
-            });
     }
 
     let mut results = HashMap::new();
@@ -117,5 +184,5 @@ pub fn parse(filename: &str)
         }
     }
 
-    results
+    (interproscan_output.interproscan_version, results)
 }
