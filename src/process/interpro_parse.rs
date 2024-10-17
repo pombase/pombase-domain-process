@@ -92,6 +92,8 @@ pub fn parse(filename: &str)
 
     for result in interproscan_output.results.into_iter() {
         for interpro_match in result.matches.into_iter() {
+            let signature = &interpro_match.signature;
+            let library = &signature.library_release.library.replace("MOBIDB_LITE", "MOBIDB");
 
             let gene_uniquename = result.xref.get(0).unwrap().id.replace(".1:pep", "");
 
@@ -101,14 +103,17 @@ pub fn parse(filename: &str)
                     if sequence_feature.len() > 0 {
                         format!("-{}", sequence_feature.replace(" ", "-"))
                     } else {
-                        "".into()
+                        if library == "MOBIDB" {
+                            "-Disorder".into()
+                        } else {
+                            "".into()
+                        }
                     }
                 } else {
                     "".into()
                 };
 
-            let match_id = format!("{}{}", interpro_match.signature.accession,
-                                   sequence_feature_str);
+            let match_id = format!("{}{}", signature.accession, sequence_feature_str);
 
             let locations: Vec<_> = interpro_match.locations.iter()
                 .map(|loc| {
@@ -124,8 +129,7 @@ pub fn parse(filename: &str)
                 .or_insert_with(HashMap::new)
                 .entry(match_id.clone())
                 .or_insert_with(|| {
-                    let signature = &interpro_match.signature;
-                    let dbname = format!("{}{}", signature.library_release.library,
+                    let dbname = format!("{}{}", library,
                                          sequence_feature_str);
                     let interpro_id =
                         if let Some(ref entry) = signature.entry {
