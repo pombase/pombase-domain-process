@@ -4,4 +4,4 @@ extern crate csv;
 
 pub mod types;
 pub mod interpro_parse;
-pub mod segmasker_parse;
+pub mod segmasker;

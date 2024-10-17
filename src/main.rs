@@ -19,7 +19,7 @@ use std::collections::HashMap;
 
 extern crate domain_process;
 
-use domain_process::{segmasker_parse, types::*};
+use domain_process::{segmasker, types::*};
 use domain_process::interpro_parse::parse;
 
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
@@ -84,7 +84,7 @@ fn make_segmasker_thread(protein_file_name: &str)
             .spawn()
             .expect("segmasker command failed to start");
         let mut buf_reader = BufReader::new(tmhmm.stdout.unwrap());
-        segmasker_parse::parse(&mut buf_reader)
+        segmasker::parse(&mut buf_reader)
     })
 }
 

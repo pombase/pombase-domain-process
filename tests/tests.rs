@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::BufReader;
 
 use domain_process::interpro_parse;
-use domain_process::segmasker_parse;
+use domain_process::segmasker;
 
 #[test]
 fn test_parse() {
@@ -34,7 +34,7 @@ fn test_parse() {
 fn test_parse_segmasker() {
     let file = File::open("tests/small_segmasker_output.txt").unwrap();
     let mut reader = BufReader::new(file);
-    let results = segmasker_parse::parse(&mut reader);
+    let results = segmasker::parse(&mut reader);
 
     let spac1250_07 = results.get("SPAC1250.07").unwrap();
     assert_eq!(spac1250_07.len(), 2);
