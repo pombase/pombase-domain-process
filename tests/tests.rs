@@ -17,8 +17,8 @@ fn test_parse() {
     assert_eq!(spac13g6_15c.gene_uniquename, "SPAC13G6.15c");
 
     let mobidb_match = spac13g6_15c.interpro_matches.get(0).unwrap();
-    assert_eq!(mobidb_match.dbname, "MOBIDB_LITE");
-    assert_eq!(mobidb_match.id, "mobidb-lite");
+    assert_eq!(mobidb_match.dbname, "MOBIDB-Disorder");
+    assert_eq!(mobidb_match.id, "mobidb-lite-Disorder");
 
     let mobidb_locations = &mobidb_match.locations;
     assert_eq!(mobidb_locations.get(0).unwrap().end, 163);
