@@ -172,6 +172,7 @@ pub fn parse(filename: &str)
                 .or_insert_with(|| GeneMatches {
                     gene_uniquename: gene_uniquename.clone(),
                     interpro_matches: vec![],
+                    segmasker_matches: vec![],
                     tmhmm_matches: vec![],
                 })
                 .interpro_matches

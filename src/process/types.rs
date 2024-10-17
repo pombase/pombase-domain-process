@@ -59,6 +59,7 @@ pub struct TMMatch {
 pub struct GeneMatches {
     pub gene_uniquename: String,
     pub interpro_matches: Vec<InterProMatch>,
+    pub segmasker_matches: Vec<Location>,
     pub tmhmm_matches: Vec<TMMatch>,
 }
 

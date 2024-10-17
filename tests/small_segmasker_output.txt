@@ -1,0 +1,7 @@
+>SPAC1250.03.1:pep ubc14|ubiquitin conjugating enzyme E2 for HECT-type and RBR family E3 Ub ligases, Ubc14
+>SPAC1250.05.1:pep rpl3002|60S ribosomal protein L30
+0 - 12
+>SPAC1250.07.1:pep sfc7|transcription factor TFIIIC subunit Sfc7
+19 - 35
+139 - 155
+>SPAC1250.04c.1:pep atl1|alkyltransferase-like protein Atl1
