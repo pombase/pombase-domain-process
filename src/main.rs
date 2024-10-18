@@ -146,13 +146,13 @@ fn main() -> Result<(), std::io::Error> {
             })
             .tmhmm_matches.extend(domain_match.into_iter());
     }
- 
+
     let segmasker_handle = make_segmasker_thread(&protein_filename);
 
     let segmasker_matches = segmasker_handle.join().expect("Failed to run segmasker");
 
-    for (gene_uniquename, locations) in segmasker_matches {
-
+    for (gene_uniquename, mut locations) in segmasker_matches {
+        segmasker::merge_locations(&mut locations);
         domains_by_id.entry(gene_uniquename.clone())
             .or_insert(GeneMatches {
                 gene_uniquename,

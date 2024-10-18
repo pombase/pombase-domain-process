@@ -5,6 +5,8 @@ use std::io::BufReader;
 
 use domain_process::interpro_parse;
 use domain_process::segmasker;
+use domain_process::segmasker::merge_locations;
+use domain_process::types::Location;
 
 #[test]
 fn test_parse() {
@@ -41,4 +43,50 @@ fn test_parse_segmasker() {
     let second_loc = spac1250_07.get(1).unwrap();
     assert_eq!(second_loc.start, 139);
     assert_eq!(second_loc.end, 155);
+}
+
+#[test]
+fn test_segmasker_location_merge() {
+    let mut locations = vec![
+        Location {
+            start: 10,
+            end: 20
+        },
+        Location {
+            start: 30,
+            end: 40
+        },
+        Location {
+            start: 41,
+            end: 50
+        },
+        Location {
+            start: 60,
+            end: 70
+        },
+        Location {
+            start: 71,
+            end: 80
+        },
+        Location {
+            start: 75,
+            end: 76
+        },
+        Location {
+            start: 90,
+            end: 100
+        },
+        Location {
+            start: 95,
+            end: 105
+        },
+        Location {
+            start: 100,
+            end: 110
+        },
+    ];
+ 
+    merge_locations(&mut locations);
+
+    assert_eq!(locations.len(), 4);
 }
