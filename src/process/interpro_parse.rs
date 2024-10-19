@@ -36,9 +36,20 @@ pub struct InterProScanSignature {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct InterProScanLocationFragment {
+    pub start: usize,
+    pub end: usize,
+    #[serde(rename = "dc-status")]
+    pub dc_status: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct InterProScanLocation {
     pub start: usize,
     pub end: usize,
+    #[serde(rename = "location-fragments")]
+    #[serde(skip_serializing_if="Vec::is_empty", default)]
+    pub location_fragments: Vec<InterProScanLocationFragment>,
     #[serde(rename = "sequence-feature")]
     pub sequence_feature: Option<String>,
 }
@@ -117,11 +128,22 @@ pub fn parse(filename: &str)
 
             let locations: Vec<_> = interpro_match.locations.iter()
                 .map(|loc| {
-                    Location {
-                        start: loc.start,
-                        end: loc.end,
+                    if loc.location_fragments.len() > 0 {
+                        loc.location_fragments
+                            .iter()
+                            .map(|frag| Location {
+                                start: frag.start,
+                                end: frag.end,
+                            })
+                            .collect()
+                    } else {
+                        vec![Location {
+                            start: loc.start,
+                            end: loc.end,
+                        }]
                     }
                 })
+                .flatten()
                 .collect();
 
             match_map
