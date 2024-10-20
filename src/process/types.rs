@@ -46,6 +46,8 @@ pub struct InterProMatch {
     pub interpro_id: String,
     pub interpro_name: String,
     pub interpro_description: String,
+    pub match_start: usize,
+    pub match_end: usize,
     pub locations: Vec<Location>,
 }
 

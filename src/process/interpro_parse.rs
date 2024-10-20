@@ -99,14 +99,16 @@ pub fn parse(filename: &str)
             },
         };
 
-    let mut match_map: HashMap<String, HashMap<String, InterProMatch>> = HashMap::new();
+    let mut gene_match_map: HashMap<String, HashMap<String, InterProMatch>> = HashMap::new();
 
     for result in interproscan_output.results.into_iter() {
+        let gene_uniquename = result.xref.get(0).unwrap().id.replace(".1:pep", "");
+
+        let mut match_map: HashMap<String, InterProMatch> = HashMap::new();
+
         for interpro_match in result.matches.into_iter() {
             let signature = &interpro_match.signature;
             let library = &signature.library_release.library.replace("MOBIDB_LITE", "MOBIDB");
-
-            let gene_uniquename = result.xref.get(0).unwrap().id.replace(".1:pep", "");
 
             let first_location = &interpro_match.locations[0];
             let sequence_feature_str =
@@ -147,8 +149,6 @@ pub fn parse(filename: &str)
                 .collect();
 
             match_map
-                .entry(gene_uniquename)
-                .or_insert_with(HashMap::new)
                 .entry(match_id.clone())
                 .or_insert_with(|| {
                     let dbname = format!("{}{}", library,
@@ -179,6 +179,8 @@ pub fn parse(filename: &str)
                         interpro_id,
                         interpro_name,
                         interpro_description,
+                        match_start: usize::MAX,
+                        match_end: 0,
                         locations: vec![],
                     }
                 })
@@ -186,11 +188,23 @@ pub fn parse(filename: &str)
                 .extend(locations.clone().into_iter());
         }
 
+        for interpro_match in match_map.values_mut() {
+            for loc in interpro_match.locations.iter() {
+                if loc.start < interpro_match.match_start {
+                    interpro_match.match_start = loc.start;
+                }
+                if loc.end > interpro_match.match_end {
+                    interpro_match.match_end = loc.end;
+                }
+            }
+        }
+
+        gene_match_map.insert(gene_uniquename, match_map);
     }
 
     let mut results = HashMap::new();
 
-    for (gene_uniquename, domains_by_id) in match_map.into_iter() {
+    for (gene_uniquename, domains_by_id) in gene_match_map.into_iter() {
         for mut interpro_match in domains_by_id.into_values() {
             interpro_match.locations.sort();
             results
