@@ -41,11 +41,16 @@ impl Ord for Location {
 pub struct InterProMatch {
     pub id: String,
     pub dbname: String,
+    #[serde(skip_serializing_if="Option::is_none")]
     pub name: Option<String>,
+    #[serde(skip_serializing_if="Option::is_none")]
     pub description: Option<String>,
-    pub interpro_id: String,
-    pub interpro_name: String,
-    pub interpro_description: String,
+    #[serde(skip_serializing_if="Option::is_none")]
+    pub interpro_id: Option<String>,
+    #[serde(skip_serializing_if="Option::is_none")]
+    pub interpro_name: Option<String>,
+    #[serde(skip_serializing_if="Option::is_none")]
+    pub interpro_description: Option<String>,
     pub match_start: usize,
     pub match_end: usize,
     pub locations: Vec<Location>,

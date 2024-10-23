@@ -156,21 +156,21 @@ pub fn parse(filename: &str)
                                          sequence_feature_str);
                     let interpro_id =
                         if let Some(ref entry) = signature.entry {
-                            entry.accession.clone()
+                            Some(entry.accession.clone())
                         } else {
-                            "".into()
+                            None
                         };
                     let interpro_name =
                         if let Some(ref entry) = signature.entry {
-                            entry.name.clone()
+                            Some(entry.name.clone())
                         } else {
-                            "".into()
+                            None
                         };
                     let interpro_description =
                         if let Some(ref entry) = signature.entry {
-                            entry.description.clone()
+                            Some(entry.description.clone())
                         } else {
-                            "".into()
+                            None
                         };
                     InterProMatch {
                         id: match_id.clone(),
