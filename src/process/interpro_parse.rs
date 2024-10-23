@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
+use std::cmp::Ordering;
 
 use crate::types::{GeneMatches, InterProMatch, Location};
 
@@ -221,7 +222,22 @@ pub fn parse(filename: &str)
 
         if let Some(ref mut gene_matches) = results.get_mut(&gene_uniquename) {
             gene_matches.interpro_matches
-                .sort_by(|a, b| { a.dbname.cmp(&b.dbname) });
+                .sort_by(|a, b| {
+                    let dbname_cmp = a.dbname.cmp(&b.dbname);
+                    if dbname_cmp == Ordering::Equal {
+                        Ordering::Equal
+                    } else {
+                        if a.dbname.to_ascii_lowercase().starts_with("pfam") {
+                            Ordering::Less
+                        } else {
+                            if b.dbname.to_ascii_lowercase().starts_with("pfam") {
+                                Ordering::Greater
+                            } else {
+                                dbname_cmp
+                            }
+                        }
+                    }
+                });
         }
     }
 
