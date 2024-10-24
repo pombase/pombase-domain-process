@@ -92,13 +92,23 @@ pub fn parse(filename: &str)
 
     let reader = BufReader::new(file);
 
-    let interproscan_output: InterProScanOutput =
+    let mut interproscan_output: InterProScanOutput =
         match serde_json::from_reader(reader) {
             Ok(config) => config,
             Err(err) => {
                 panic!("failed to parse {}: {}", filename, err)
             },
         };
+
+    for result in interproscan_output.results.iter_mut() {
+        for interpro_match in result.matches.iter_mut() {
+            if let Some(ref name) = interpro_match.signature.name {
+                if name == "" {
+                    interpro_match.signature.name = None
+                }
+            }
+        }
+    }
 
     let mut gene_match_map: HashMap<String, HashMap<String, InterProMatch>> = HashMap::new();
 
