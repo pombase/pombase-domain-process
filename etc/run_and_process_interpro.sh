@@ -4,10 +4,10 @@
 #   cd <interproscan_directory>
 #   run_and_process_interpro.sh
 
-python3 setup.py -f interproscan.properties
-
 perl -pne 's/(precalculated.match.lookup.service.proxy.(host|port)=).*/$1/' interproscan.properties > interproscan.properties.new &&
     mv interproscan.properties.new interproscan.properties
+
+python3 setup.py -f interproscan.properties
 
 curl https://curation.pombase.org/dumps/latest_build/fasta/feature_sequences/peptide.fa.gz |
     gzip -d | perl -pne 's/\*$//' | perl -pne 's/\*/X/g' > pombe_peptide.fa
