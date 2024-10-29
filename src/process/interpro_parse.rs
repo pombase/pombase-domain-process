@@ -4,6 +4,7 @@ use std::io::BufReader;
 use std::cmp::Ordering;
 
 use crate::types::{GeneMatches, InterProMatch, Location};
+use crate::util::merge_locations;
 
 #[derive(Debug, Deserialize)]
 pub struct InterProScanOutput {
@@ -218,6 +219,7 @@ pub fn parse(filename: &str)
     for (gene_uniquename, domains_by_id) in gene_match_map.into_iter() {
         for mut interpro_match in domains_by_id.into_values() {
             interpro_match.locations.sort();
+            merge_locations(&mut interpro_match.locations);
             results
                 .entry(gene_uniquename.clone())
                 .or_insert_with(|| GeneMatches {

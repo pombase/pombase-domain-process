@@ -7,6 +7,7 @@ extern crate serde_derive;
 
 use std::ffi::OsString;
 use std::{env, process};
+use domain_process::util::merge_locations;
 use getopts::Options;
 use std::thread;
 use std::thread::JoinHandle;
@@ -152,7 +153,7 @@ fn main() -> Result<(), std::io::Error> {
     let segmasker_matches = segmasker_handle.join().expect("Failed to run segmasker");
 
     for (gene_uniquename, mut locations) in segmasker_matches {
-        segmasker::merge_locations(&mut locations);
+        merge_locations(&mut locations);
         domains_by_id.entry(gene_uniquename.clone())
             .or_insert(GeneMatches {
                 gene_uniquename,
