@@ -10,7 +10,6 @@ pub fn merge_locations(locations: &mut Vec<Location>)
     locations.sort_by_key(|a| a.start);
 
     for i in (1..locations.len()).rev() {
-        eprintln!("{:?}", locations[i]);
         let (this_start, this_end) = {
             let this = locations.get(i).unwrap();
             (this.start, this.end)

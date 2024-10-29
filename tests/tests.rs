@@ -18,14 +18,24 @@ fn test_parse() {
     let spac13g6_15c = matches.get("SPAC13G6.15c").unwrap();
     assert_eq!(spac13g6_15c.gene_uniquename, "SPAC13G6.15c");
 
-    let mobidb_match = spac13g6_15c.interpro_matches.get(0).unwrap();
-    assert_eq!(mobidb_match.dbname, "MOBIDB-Disorder");
-    assert_eq!(mobidb_match.id, "mobidb-lite-Disorder");
+    let mobidb_disorder_match = spac13g6_15c.interpro_matches.get(0).unwrap();
+    assert_eq!(mobidb_disorder_match.dbname, "MOBIDB-Disorder");
+    assert_eq!(mobidb_disorder_match.id, "mobidb-lite-Disorder");
 
-    let mobidb_locations = &mobidb_match.locations;
+    let mobidb_locations = &mobidb_disorder_match.locations;
     assert_eq!(mobidb_locations.get(0).unwrap().end, 163);
 
-    let panther_match = spac13g6_15c.interpro_matches.get(1).unwrap();
+    let mobidb_low_complexity_match = spac13g6_15c.interpro_matches.get(1).unwrap();
+    assert_eq!(mobidb_low_complexity_match.dbname, "MOBIDB-Low-complexity");
+    assert_eq!(mobidb_low_complexity_match.id, "mobidb-lite-Low-complexity");
+    assert_eq!(mobidb_low_complexity_match.match_start, 299);
+    assert_eq!(mobidb_low_complexity_match.match_end, 329);
+
+    let mobidb_low_complexity_locations = &mobidb_low_complexity_match.locations;
+    assert_eq!(mobidb_low_complexity_locations.get(0).unwrap().end, 329);
+
+
+    let panther_match = spac13g6_15c.interpro_matches.get(3).unwrap();
     assert_eq!(panther_match.dbname, "PANTHER");
     assert_eq!(panther_match.id, "PTHR10300");
 

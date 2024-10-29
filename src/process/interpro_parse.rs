@@ -122,26 +122,26 @@ pub fn parse(filename: &str)
             let signature = &interpro_match.signature;
             let library = &signature.library_release.library.replace("MOBIDB_LITE", "MOBIDB");
 
-            let first_location = &interpro_match.locations[0];
-            let sequence_feature_str =
-                if let Some(ref sequence_feature) = first_location.sequence_feature {
-                    if sequence_feature.len() > 0 {
-                        format!("-{}", sequence_feature.replace(" ", "-"))
-                    } else {
-                        if library == "MOBIDB" {
-                            "-Disorder".into()
+            for loc in interpro_match.locations {
+
+                let sequence_feature_str =
+                    if let Some(ref sequence_feature) = loc.sequence_feature {
+                        if sequence_feature.len() > 0 {
+                            format!("-{}", sequence_feature.replace(" ", "-"))
                         } else {
-                            "".into()
+                            if library == "MOBIDB" {
+                                "-Disorder".into()
+                            } else {
+                                "".into()
+                            }
                         }
-                    }
-                } else {
-                    "".into()
-                };
+                    } else {
+                        "".into()
+                    };
 
-            let match_id = format!("{}{}", signature.accession, sequence_feature_str);
+                let match_id = format!("{}{}", signature.accession, sequence_feature_str);
 
-            let locations: Vec<_> = interpro_match.locations.iter()
-                .map(|loc| {
+                let fragment_locs =
                     if loc.location_fragments.len() > 0 {
                         loc.location_fragments
                             .iter()
@@ -155,49 +155,47 @@ pub fn parse(filename: &str)
                             start: loc.start,
                             end: loc.end,
                         }]
-                    }
-                })
-                .flatten()
-                .collect();
+                    };
 
-            match_map
-                .entry(match_id.clone())
-                .or_insert_with(|| {
-                    let dbname = format!("{}{}", library,
-                                         sequence_feature_str);
-                    let interpro_id =
-                        if let Some(ref entry) = signature.entry {
-                            Some(entry.accession.clone())
-                        } else {
-                            None
-                        };
-                    let interpro_name =
-                        if let Some(ref entry) = signature.entry {
-                            Some(entry.name.clone())
-                        } else {
-                            None
-                        };
-                    let interpro_description =
-                        if let Some(ref entry) = signature.entry {
-                            Some(entry.description.clone())
-                        } else {
-                            None
-                        };
-                    InterProMatch {
-                        id: match_id.clone(),
-                        dbname,
-                        name: signature.name.clone(),
-                        description: signature.description.clone(),
-                        interpro_id,
-                        interpro_name,
-                        interpro_description,
-                        match_start: usize::MAX,
-                        match_end: 0,
-                        locations: vec![],
-                    }
-                })
-                .locations
-                .extend(locations.clone().into_iter());
+                match_map
+                    .entry(match_id.clone())
+                    .or_insert_with(|| {
+                        let dbname = format!("{}{}", library,
+                                             sequence_feature_str);
+                        let interpro_id =
+                            if let Some(ref entry) = signature.entry {
+                                Some(entry.accession.clone())
+                            } else {
+                                None
+                            };
+                        let interpro_name =
+                            if let Some(ref entry) = signature.entry {
+                                Some(entry.name.clone())
+                            } else {
+                                None
+                            };
+                        let interpro_description =
+                            if let Some(ref entry) = signature.entry {
+                                Some(entry.description.clone())
+                            } else {
+                                None
+                            };
+                        InterProMatch {
+                            id: match_id.clone(),
+                            dbname,
+                            name: signature.name.clone(),
+                            description: signature.description.clone(),
+                            interpro_id,
+                            interpro_name,
+                            interpro_description,
+                            match_start: usize::MAX,
+                            match_end: 0,
+                            locations: vec![],
+                        }
+                    })
+                    .locations
+                    .extend(fragment_locs.into_iter());
+            }
         }
 
         for interpro_match in match_map.values_mut() {

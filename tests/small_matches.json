@@ -6,6 +6,50 @@
       "md5": "3e384f1f8cb0c23464a589559bd6892c",
       "matches": [
         {
+          "signature" : {
+            "accession" : "mobidb-lite",
+            "name" : "mobidb-lite",
+            "description" : null,
+            "signatureLibraryRelease" : {
+              "library" : "MOBIDB_LITE",
+              "version" : "4.0"
+            },
+            "entry" : null
+          },
+          "locations" : [ {
+            "start" : 280,
+            "end" : 290,
+            "representative" : false,
+            "location-fragments" : [ {
+              "start" : 280,
+              "end" : 290,
+              "dc-status" : "CONTINUOUS"
+            } ],
+            "sequence-feature" : "Polyampholyte"
+          }, {
+            "start" : 255,
+            "end" : 329,
+            "representative" : false,
+            "location-fragments" : [ {
+              "start" : 255,
+              "end" : 329,
+              "dc-status" : "CONTINUOUS"
+            } ],
+            "sequence-feature" : ""
+          }, {
+            "start" : 299,
+            "end" : 329,
+            "representative" : false,
+            "location-fragments" : [ {
+              "start" : 299,
+              "end" : 329,
+              "dc-status" : "CONTINUOUS"
+            } ],
+            "sequence-feature" : "Low complexity"
+          } ],
+          "model-ac" : "mobidb-lite"
+        },
+        {
           "signature": {
             "accession": "mobidb-lite",
             "name": "disorder_prediction",
