@@ -79,6 +79,105 @@ pub struct InterProScanEntry {
 pub type VersionString = String;
 
 
+fn process_one_result(matches: Vec<InterProScanMatch>)
+     -> HashMap<String, InterProMatch>
+{
+    let mut match_map: HashMap<String, InterProMatch> = HashMap::new();
+
+    for interpro_match in matches.into_iter() {
+        let signature = &interpro_match.signature;
+        let library = &signature.library_release.library.replace("MOBIDB_LITE", "MOBIDB");
+
+        for loc in interpro_match.locations {
+
+            let sequence_feature_str =
+                if let Some(ref sequence_feature) = loc.sequence_feature {
+                    if sequence_feature.len() > 0 {
+                        format!("-{}", sequence_feature.replace(" ", "-"))
+                    } else {
+                        if library == "MOBIDB" {
+                            "-Disorder".into()
+                        } else {
+                            "".into()
+                        }
+                    }
+                } else {
+                    "".into()
+                };
+
+            let match_id = format!("{}{}", signature.accession, sequence_feature_str);
+
+            let fragment_locs =
+                if loc.location_fragments.len() > 0 {
+                    loc.location_fragments
+                        .iter()
+                        .map(|frag| Location {
+                            start: frag.start,
+                            end: frag.end,
+                        })
+                        .collect()
+                } else {
+                    vec![Location {
+                        start: loc.start,
+                        end: loc.end,
+                    }]
+                };
+
+            match_map
+                .entry(match_id.clone())
+                .or_insert_with(|| {
+                    let dbname = format!("{}{}", library,
+                                         sequence_feature_str);
+                    let interpro_id =
+                        if let Some(ref entry) = signature.entry {
+                            Some(entry.accession.clone())
+                        } else {
+                            None
+                        };
+                    let interpro_name =
+                        if let Some(ref entry) = signature.entry {
+                            Some(entry.name.clone())
+                        } else {
+                            None
+                        };
+                    let interpro_description =
+                        if let Some(ref entry) = signature.entry {
+                            Some(entry.description.clone())
+                        } else {
+                            None
+                        };
+                    InterProMatch {
+                        id: match_id.clone(),
+                        dbname,
+                        name: signature.name.clone(),
+                        description: signature.description.clone(),
+                        interpro_id,
+                        interpro_name,
+                        interpro_description,
+                        match_start: usize::MAX,
+                        match_end: 0,
+                        locations: vec![],
+                    }
+                })
+                .locations
+                .extend(fragment_locs.into_iter());
+        }
+    }
+
+    for interpro_match in match_map.values_mut() {
+        for loc in interpro_match.locations.iter() {
+            if loc.start < interpro_match.match_start {
+                interpro_match.match_start = loc.start;
+            }
+            if loc.end > interpro_match.match_end {
+                interpro_match.match_end = loc.end;
+            }
+        }
+    }
+
+    match_map
+}
+
 /// Parse an InterPro TSV file.  Return a map from UniProt ID to struct
 /// containing its InterProMatches.
 pub fn parse(filename: &str)
@@ -114,102 +213,17 @@ pub fn parse(filename: &str)
     let mut gene_match_map: HashMap<String, HashMap<String, InterProMatch>> = HashMap::new();
 
     for result in interproscan_output.results.into_iter() {
-        let gene_uniquename = result.xref.get(0).unwrap().id.replace(".1:pep", "");
+        let InterProScanResult { matches, xref } = result;
 
-        let mut match_map: HashMap<String, InterProMatch> = HashMap::new();
+        let match_map = process_one_result(matches);
 
-        for interpro_match in result.matches.into_iter() {
-            let signature = &interpro_match.signature;
-            let library = &signature.library_release.library.replace("MOBIDB_LITE", "MOBIDB");
+        let gene_uniquenames: Vec<_> = xref.iter()
+            .map(|xref| xref.id.replace(".1:pep", ""))
+            .collect();
 
-            for loc in interpro_match.locations {
-
-                let sequence_feature_str =
-                    if let Some(ref sequence_feature) = loc.sequence_feature {
-                        if sequence_feature.len() > 0 {
-                            format!("-{}", sequence_feature.replace(" ", "-"))
-                        } else {
-                            if library == "MOBIDB" {
-                                "-Disorder".into()
-                            } else {
-                                "".into()
-                            }
-                        }
-                    } else {
-                        "".into()
-                    };
-
-                let match_id = format!("{}{}", signature.accession, sequence_feature_str);
-
-                let fragment_locs =
-                    if loc.location_fragments.len() > 0 {
-                        loc.location_fragments
-                            .iter()
-                            .map(|frag| Location {
-                                start: frag.start,
-                                end: frag.end,
-                            })
-                            .collect()
-                    } else {
-                        vec![Location {
-                            start: loc.start,
-                            end: loc.end,
-                        }]
-                    };
-
-                match_map
-                    .entry(match_id.clone())
-                    .or_insert_with(|| {
-                        let dbname = format!("{}{}", library,
-                                             sequence_feature_str);
-                        let interpro_id =
-                            if let Some(ref entry) = signature.entry {
-                                Some(entry.accession.clone())
-                            } else {
-                                None
-                            };
-                        let interpro_name =
-                            if let Some(ref entry) = signature.entry {
-                                Some(entry.name.clone())
-                            } else {
-                                None
-                            };
-                        let interpro_description =
-                            if let Some(ref entry) = signature.entry {
-                                Some(entry.description.clone())
-                            } else {
-                                None
-                            };
-                        InterProMatch {
-                            id: match_id.clone(),
-                            dbname,
-                            name: signature.name.clone(),
-                            description: signature.description.clone(),
-                            interpro_id,
-                            interpro_name,
-                            interpro_description,
-                            match_start: usize::MAX,
-                            match_end: 0,
-                            locations: vec![],
-                        }
-                    })
-                    .locations
-                    .extend(fragment_locs.into_iter());
-            }
+        for gene_uniquename in gene_uniquenames.into_iter() {
+            gene_match_map.insert(gene_uniquename, match_map.clone());
         }
-
-        for interpro_match in match_map.values_mut() {
-            for loc in interpro_match.locations.iter() {
-                if loc.start < interpro_match.match_start {
-                    interpro_match.match_start = loc.start;
-                }
-                if loc.end > interpro_match.match_end {
-                    interpro_match.match_end = loc.end;
-                }
-            }
-        }
-
-        gene_match_map.insert(gene_uniquename, match_map);
     }
 
     let mut results = HashMap::new();
