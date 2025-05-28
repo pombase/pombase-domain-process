@@ -42,7 +42,9 @@ pub struct InterProScanLocationFragment {
     pub start: usize,
     pub end: usize,
     #[serde(rename = "dc-status")]
-    pub dc_status: String,
+    pub dc_status: Option<String>,
+    #[serde(rename = "dcStatus")]
+    pub dcstatus: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
