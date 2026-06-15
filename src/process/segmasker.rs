@@ -18,7 +18,7 @@ pub fn parse(buf_reader: &mut dyn BufRead)
         let line = line_result.unwrap();
         if line.starts_with(">") {
             let re_result = gene_re.captures(&line);
-            let captures = re_result.unwrap();
+            let captures = re_result.expect(&format!("failed to segmasker output: {}", line));
             current_gene = captures.get(1).unwrap().as_str().to_owned();
         } else {
             let line_parts: Vec<_> = line.split(" ").collect();
