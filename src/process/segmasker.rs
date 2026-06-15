@@ -10,7 +10,7 @@ pub fn parse(buf_reader: &mut dyn BufRead)
 {
     let mut ret = HashMap::new();
 
-    let gene_re = Regex::new(r"^>(\S+)\.1:pep\s.*").unwrap();
+    let gene_re = Regex::new(r"^>(\S+)\.1:pep").unwrap();
 
     let mut current_gene = String::from("");
 
