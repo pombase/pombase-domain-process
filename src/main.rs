@@ -77,14 +77,13 @@ fn make_segmasker_thread(protein_file_name: &str)
     let protein_file_name_ostring: OsString = protein_file_name.into();
 
     thread::spawn(move || {
-
-        let tmhmm = Command::new("segmasker")
+        let segmasker_thread = Command::new("segmasker")
             .arg("-in")
             .arg(protein_file_name_ostring)
             .stdout(process::Stdio::piped())
             .spawn()
             .expect("segmasker command failed to start");
-        let mut buf_reader = BufReader::new(tmhmm.stdout.unwrap());
+        let mut buf_reader = BufReader::new(segmasker_thread.stdout.unwrap());
         segmasker::parse(&mut buf_reader)
     })
 }
