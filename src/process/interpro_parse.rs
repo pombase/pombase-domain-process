@@ -10,6 +10,8 @@ use crate::util::merge_locations;
 pub struct InterProScanOutput {
     #[serde(rename = "interproscan-version")]
     pub interproscan_version: String,
+    #[serde(rename = "interpro-version")]
+    pub interpro_version: String,
     pub results: Vec<InterProScanResult>,
 }
 
@@ -267,5 +269,8 @@ pub fn parse(filename: &str)
         }
     }
 
-    (interproscan_output.interproscan_version, results)
+    let version = format!("v{} (InterProScan v{})", interproscan_output.interpro_version,
+                          interproscan_output.interproscan_version);
+
+    (version, results)
 }
