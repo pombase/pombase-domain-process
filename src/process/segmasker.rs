@@ -18,14 +18,14 @@ pub fn parse(buf_reader: &mut dyn BufRead)
         let line = line_result.unwrap();
         if line.starts_with(">") {
             let re_result = gene_re.captures(&line);
-            let captures = re_result.expect(&format!("failed to segmasker output: {}", line));
+            let captures = re_result.unwrap_or_else(|| panic!("failed to segmasker output: {}", line));
             current_gene = captures.get(1).unwrap().as_str().to_owned();
         } else {
             let line_parts: Vec<_> = line.split(" ").collect();
             if *line_parts.get(1).unwrap() != "-" {
                 panic!("can't parse line from segmasker: {}", line);
             }
-            let start = line_parts.get(0).unwrap().parse::<usize>().unwrap();
+            let start = line_parts.first().unwrap().parse::<usize>().unwrap();
             let end = line_parts.get(2).unwrap().parse::<usize>().unwrap();
             ret.entry(current_gene.clone())
                 .or_insert(vec![])

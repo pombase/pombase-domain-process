@@ -96,7 +96,7 @@ fn process_one_result(matches: Vec<InterProScanMatch>)
 
             let sequence_feature_str =
                 if let Some(ref sequence_feature) = loc.sequence_feature {
-                    if sequence_feature.len() > 0 {
+                    if !sequence_feature.is_empty() {
                         format!("-{}", sequence_feature.replace(" ", "-"))
                     } else {
                         if library == "MOBIDB" {
@@ -112,7 +112,7 @@ fn process_one_result(matches: Vec<InterProScanMatch>)
             let match_id = format!("{}{}", signature.accession, sequence_feature_str);
 
             let fragment_locs =
-                if loc.location_fragments.len() > 0 {
+                if !loc.location_fragments.is_empty() {
                     loc.location_fragments
                         .iter()
                         .map(|frag| Location {
@@ -133,23 +133,11 @@ fn process_one_result(matches: Vec<InterProScanMatch>)
                     let dbname = format!("{}{}", library,
                                          sequence_feature_str);
                     let interpro_id =
-                        if let Some(ref entry) = signature.entry {
-                            Some(entry.accession.clone())
-                        } else {
-                            None
-                        };
+                        signature.entry.as_ref().map(|entry| entry.accession.clone());
                     let interpro_name =
-                        if let Some(ref entry) = signature.entry {
-                            Some(entry.name.clone())
-                        } else {
-                            None
-                        };
+                        signature.entry.as_ref().map(|entry| entry.name.clone());
                     let interpro_description =
-                        if let Some(ref entry) = signature.entry {
-                            Some(entry.description.clone())
-                        } else {
-                            None
-                        };
+                        signature.entry.as_ref().map(|entry| entry.description.clone());
                     InterProMatch {
                         id: match_id.clone(),
                         dbname,
@@ -164,7 +152,7 @@ fn process_one_result(matches: Vec<InterProScanMatch>)
                     }
                 })
                 .locations
-                .extend(fragment_locs.into_iter());
+                .extend(fragment_locs);
         }
     }
 
@@ -207,7 +195,7 @@ pub fn parse(filename: &str)
     for result in interproscan_output.results.iter_mut() {
         for interpro_match in result.matches.iter_mut() {
             if let Some(ref name) = interpro_match.signature.name {
-                if name == "" {
+                if name.is_empty() {
                     interpro_match.signature.name = None
                 }
             }

@@ -39,12 +39,12 @@ fn make_tmhmm_thread(protein_file_name: &str)
 
     thread::spawn(move || {
         let mut ret = HashMap::new();
-        let tmhmm = Command::new("tmhmm")
+        let mut tmhmm = Command::new("tmhmm")
             .arg(protein_file_name_ostring)
-            .stdout(process::Stdio::piped())
             .spawn()
-            .expect("tmhmm command failed to start");
-        let buf_reader = BufReader::new(tmhmm.stdout.unwrap());
+            .unwrap();
+
+        let buf_reader: BufReader<_> = BufReader::new(tmhmm.stdout.as_mut().unwrap());
         'LINE: for line_result in buf_reader.lines() {
             let line = line_result.unwrap();
             if line.starts_with("#") {
@@ -65,6 +65,7 @@ fn make_tmhmm_thread(protein_file_name: &str)
                     });
             }
         }
+        tmhmm.wait().unwrap();
         ret
     })
 }
@@ -77,14 +78,16 @@ fn make_segmasker_thread(protein_file_name: &str)
     let protein_file_name_ostring: OsString = protein_file_name.into();
 
     thread::spawn(move || {
-        let segmasker_thread = Command::new("segmasker")
+        let mut segmasker_thread = Command::new("segmasker")
             .arg("-in")
             .arg(protein_file_name_ostring)
             .stdout(process::Stdio::piped())
             .spawn()
-            .expect("segmasker command failed to start");
-        let mut buf_reader = BufReader::new(segmasker_thread.stdout.unwrap());
-        segmasker::parse(&mut buf_reader)
+            .unwrap();
+        let mut buf_reader = BufReader::new(segmasker_thread.stdout.as_mut().unwrap());
+        let res = segmasker::parse(&mut buf_reader);
+        segmasker_thread.wait().unwrap();
+        res
     })
 }
 
@@ -92,7 +95,7 @@ fn make_segmasker_thread(protein_file_name: &str)
 /// Parse the InterPro XML and run TMHMM to create a JSON file for the PomBase
 /// front end to display.
 fn main() -> Result<(), std::io::Error> {
-    print!("{} v{}\n", PKG_NAME, VERSION);
+    println!("{} v{}", PKG_NAME, VERSION);
 
     let args: Vec<String> = env::args().collect();
     let mut opts = Options::new();
@@ -119,7 +122,7 @@ fn main() -> Result<(), std::io::Error> {
     }
 
     if !matches.opt_present("postgresql-connection-string") {
-        print!("no -p|--postgresql-connection-string option\n");
+        println!("no -p|--postgresql-connection-string option");
         print_usage(&program, opts);
         process::exit(1);
     }
@@ -144,7 +147,7 @@ fn main() -> Result<(), std::io::Error> {
                 segmasker_matches: vec![],
                 tmhmm_matches: vec![],
             })
-            .tmhmm_matches.extend(domain_match.into_iter());
+            .tmhmm_matches.extend(domain_match);
     }
 
     let segmasker_handle = make_segmasker_thread(&protein_filename);
@@ -160,7 +163,7 @@ fn main() -> Result<(), std::io::Error> {
                 segmasker_matches: vec![],
                 tmhmm_matches: vec![],
             })
-            .segmasker_matches.extend(locations.into_iter());
+            .segmasker_matches.extend(locations);
     }
 
     let domain_data = DomainData {
