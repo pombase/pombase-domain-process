@@ -13,7 +13,7 @@ fn test_parse() {
 
     let (interproscan_version, matches) = interpro_parse::parse("tests/small_matches.json");
 
-    assert_eq!(interproscan_version, "5.69-101.0");
+    assert_eq!(interproscan_version, "v109.0 (InterProScan v6.0.1)");
 
     let spac13g6_15c = matches.get("SPAC13G6.15c").unwrap();
     assert_eq!(spac13g6_15c.gene_uniquename, "SPAC13G6.15c");
