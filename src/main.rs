@@ -39,12 +39,13 @@ fn make_tmhmm_thread(protein_file_name: &str)
 
     thread::spawn(move || {
         let mut ret = HashMap::new();
-        let mut tmhmm = Command::new("tmhmm")
+        let tmhmm_output = Command::new("tmhmm")
             .arg(protein_file_name_ostring)
-            .spawn()
-            .unwrap();
+            .output()
+            .expect("failed to get output of TMHMM");
 
-        let buf_reader: BufReader<_> = BufReader::new(tmhmm.stdout.as_mut().unwrap());
+        let stdout = tmhmm_output.stdout.as_slice();
+        let buf_reader: BufReader<_> = BufReader::new(stdout);
         'LINE: for line_result in buf_reader.lines() {
             let line = line_result.unwrap();
             if line.starts_with("#") {
@@ -65,7 +66,6 @@ fn make_tmhmm_thread(protein_file_name: &str)
                     });
             }
         }
-        tmhmm.wait().unwrap();
         ret
     })
 }
