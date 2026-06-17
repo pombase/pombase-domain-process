@@ -2,12 +2,15 @@
 
 # Usage:
 #   cd <interproscan_directory>
-#   run_and_process_interpro.sh
+#   run_and_process_interpro.sh <interproscan_version>
 
-perl -pne 's/(precalculated.match.lookup.service.proxy.(host|port)=).*/$1/' interproscan.properties > interproscan.properties.new &&
-    mv interproscan.properties.new interproscan.properties
+if [ "$1" = "" ]
+then
+    echo "Provide an InterProScan version as argument" 1>&2
+    exit 1
+fi
 
-python3 setup.py -f interproscan.properties
+INTERPRO_SCAN_VERSION=$1
 
 curl https://curation.pombase.org/dumps/latest_build/fasta/feature_sequences/peptide.fa.gz |
     gzip -d | perl -pne 's/\*$//' | perl -pne 's/\*/X/g' > pombe_peptide.fa
@@ -15,9 +18,9 @@ curl https://curation.pombase.org/dumps/latest_build/fasta/feature_sequences/pep
 curl https://www.japonicusdb.org/data/genome_sequence_and_features/feature_sequences/peptide.fa.gz |
     gzip -d | perl -pne 's/\*$//' | perl -pne 's/\*/X/g' > japonicus_peptide.fa
 
-PATH=/usr/local/jdk-14.0.1/bin:$PATH nice -19 ./interproscan.sh -i pombe_peptide.fa -f json
+nextflow run ebi-pf-team/interproscan6 -r $INTERPROSCAN_VERSION -profile docker --datadir data --interpro latest --input pombe_peptide.fa --max-workers 1 -c /data/pombase/interproscan6/licensed.conf
 
-PATH=/usr/local/jdk-14.0.1/bin:$PATH nice -19 ./interproscan.sh -i japonicus_peptide.fa -f json
+nextflow run ebi-pf-team/interproscan6 -r $INTERPROSCAN_VERSION -profile docker --datadir data --interpro latest --input japonicus_peptide.fa --max-workers 1 -c /data/pombase/interproscan6/licensed.conf
 
 PATH=/usr/local/tmhmm-2.0c/bin:$PATH nice -19 /var/pomcur/bin/pombase-domain-process -p pombe_peptide.fa \
    -i pombe_peptide.fa.json -o pombe_domain_results.json
