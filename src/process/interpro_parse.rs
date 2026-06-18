@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::cmp::Ordering;
@@ -84,29 +84,28 @@ pub type VersionString = String;
 
 
 fn process_one_result(matches: Vec<InterProScanMatch>)
-     -> HashMap<String, InterProMatch>
+     -> BTreeMap<String, InterProMatch>
 {
-    let mut match_map: HashMap<String, InterProMatch> = HashMap::new();
+    let mut match_map = BTreeMap::new();
 
     for interpro_match in matches.into_iter() {
         let signature = &interpro_match.signature;
         let library = &signature.library_release.library.replace("MobiDB-lite", "MobiDB");
-
         for loc in interpro_match.locations {
 
             let sequence_feature_str =
                 if let Some(ref sequence_feature) = loc.sequence_feature {
-                    if !sequence_feature.is_empty() {
-                        format!("-{}", sequence_feature.replace(" ", "-"))
+                    if sequence_feature.is_empty() {
+                        "".into()
                     } else {
-                        if library == "MOBIDB" {
-                            "-Disorder".into()
-                        } else {
-                            "".into()
-                        }
+                        format!("-{}", sequence_feature.replace(" ", "-"))
                     }
                 } else {
-                    "".into()
+                    if library == "MobiDB" {
+                        "-Disorder".into()
+                    } else {
+                        "".into()
+                    }
                 };
 
             let match_id = format!("{}{}", signature.accession, sequence_feature_str);
@@ -173,7 +172,7 @@ fn process_one_result(matches: Vec<InterProScanMatch>)
 /// Parse an InterPro TSV file.  Return a map from UniProt ID to struct
 /// containing its InterProMatches.
 pub fn parse(filename: &str)
-         -> (VersionString, HashMap<String, GeneMatches>)
+         -> (VersionString, BTreeMap<String, GeneMatches>)
 {
     let file = match File::open(filename) {
         Ok(file) => file,
@@ -202,7 +201,7 @@ pub fn parse(filename: &str)
         }
     }
 
-    let mut gene_match_map: HashMap<String, HashMap<String, InterProMatch>> = HashMap::new();
+    let mut gene_match_map = BTreeMap::new();
 
     for result in interproscan_output.results.into_iter() {
         let InterProScanResult { matches, xref } = result;
@@ -218,7 +217,7 @@ pub fn parse(filename: &str)
         }
     }
 
-    let mut results = HashMap::new();
+    let mut results = BTreeMap::new();
 
     for (gene_uniquename, domains_by_id) in gene_match_map.into_iter() {
         for mut interpro_match in domains_by_id.into_values() {

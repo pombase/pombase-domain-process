@@ -1,5 +1,5 @@
 
-use std::{cmp::Ordering, collections::HashMap, hash::{Hash, Hasher}};
+use std::{cmp::Ordering, collections::BTreeMap, hash::{Hash, Hasher}};
 
 #[derive(Serialize, Debug, Clone)]
 pub struct Location {
@@ -73,5 +73,5 @@ pub struct GeneMatches {
 #[derive(Serialize, Debug, Clone)]
 pub struct DomainData {
     pub interproscan_version: String,
-    pub domains_by_id: HashMap<String, GeneMatches>,
+    pub domains_by_id: BTreeMap<String, GeneMatches>,
 }

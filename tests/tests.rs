@@ -18,28 +18,29 @@ fn test_parse() {
     let spac13g6_15c = matches.get("SPAC13G6.15c").unwrap();
     assert_eq!(spac13g6_15c.gene_uniquename, "SPAC13G6.15c");
 
-    let mobidb_disorder_match = spac13g6_15c.interpro_matches.get(0).unwrap();
-    assert_eq!(mobidb_disorder_match.dbname, "MOBIDB-Disorder");
+    assert_eq!(spac13g6_15c.interpro_matches.len(), 4);
+
+    let mobidb_disorder_match = spac13g6_15c.interpro_matches.get(1).unwrap();
+    assert_eq!(mobidb_disorder_match.dbname, "MobiDB-Disorder");
     assert_eq!(mobidb_disorder_match.id, "mobidb-lite-Disorder");
 
     let mobidb_locations = &mobidb_disorder_match.locations;
-    assert_eq!(mobidb_locations.get(0).unwrap().end, 163);
+    assert_eq!(mobidb_locations.first().unwrap().end, 163);
 
-    let mobidb_low_complexity_match = spac13g6_15c.interpro_matches.get(1).unwrap();
-    assert_eq!(mobidb_low_complexity_match.dbname, "MOBIDB-Low-complexity");
-    assert_eq!(mobidb_low_complexity_match.id, "mobidb-lite-Low-complexity");
-    assert_eq!(mobidb_low_complexity_match.match_start, 299);
-    assert_eq!(mobidb_low_complexity_match.match_end, 329);
+    let mobidb_low_complexity_match = spac13g6_15c.interpro_matches.get(2).unwrap();
+    assert_eq!(mobidb_low_complexity_match.dbname, "MobiDB-Polar");
+    assert_eq!(mobidb_low_complexity_match.id, "mobidb-lite-Polar");
+    assert_eq!(mobidb_low_complexity_match.match_start, 153);
+    assert_eq!(mobidb_low_complexity_match.match_end, 163);
 
     let mobidb_low_complexity_locations = &mobidb_low_complexity_match.locations;
-    assert_eq!(mobidb_low_complexity_locations.get(0).unwrap().end, 329);
-
+    assert_eq!(mobidb_low_complexity_locations.first().unwrap().end, 163);
 
     let panther_match = spac13g6_15c.interpro_matches.get(3).unwrap();
     assert_eq!(panther_match.dbname, "PANTHER");
     assert_eq!(panther_match.id, "PTHR10300");
 
-    assert_eq!(panther_match.locations[0].end, 153);
+    assert_eq!(panther_match.locations[0].end, 156);
 }
 
 #[test]
@@ -95,7 +96,7 @@ fn test_segmasker_location_merge() {
             end: 110
         },
     ];
- 
+
     merge_locations(&mut locations);
 
     assert_eq!(locations.len(), 4);
@@ -122,7 +123,7 @@ fn test_segmasker_location_merge_2() {
             end: 150
         },
     ];
- 
+
     merge_locations(&mut locations);
 
     assert_eq!(locations.len(), 2);
