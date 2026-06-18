@@ -90,7 +90,7 @@ fn process_one_result(matches: Vec<InterProScanMatch>)
 
     for interpro_match in matches.into_iter() {
         let signature = &interpro_match.signature;
-        let library = &signature.library_release.library.replace("MOBIDB_LITE", "MOBIDB");
+        let library = &signature.library_release.library.replace("MobiDB-lite", "MobiDB");
 
         for loc in interpro_match.locations {
 
