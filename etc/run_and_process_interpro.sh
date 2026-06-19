@@ -20,10 +20,16 @@ curl https://www.japonicusdb.org/data/genome_sequence_and_features/feature_seque
 
 nextflow run ebi-pf-team/interproscan6 -r $INTERPROSCAN_VERSION -profile docker --datadir data --interpro latest --input pombe_peptide.fa --max-workers 1 -c /data/pombase/interproscan6/licensed.conf
 
+# Run only DeepTMHMM:
+#nextflow run ebi-pf-team/interproscan6 -r $INTERPROSCAN_VERSION -profile docker --datadir data --interpro latest --input pombe_peptide.fa --max-workers 1 -c /data/pombase/interproscan6/licensed.conf --applications deeptmhmm
+
 nextflow run ebi-pf-team/interproscan6 -r $INTERPROSCAN_VERSION -profile docker --datadir data --interpro latest --input japonicus_peptide.fa --max-workers 1 -c /data/pombase/interproscan6/licensed.conf
 
-PATH=/usr/local/tmhmm-2.0c/bin:$PATH nice -19 /var/pomcur/bin/pombase-domain-process -p pombe_peptide.fa \
+PATH=/usr/local/tmhmm-2.0c/bin:$PATH nice -19 /var/pomcur/bin/pombase-domain-process \
+   --run-tmhmm -p pombe_peptide.fa \
+   --extra-input-file /data/pombase/interproscan6/deeptmhmm_pombe_peptide.fa.json \
    -i pombe_peptide.fa.json -o pombe_domain_results.json
 
-PATH=/usr/local/tmhmm-2.0c/bin:$PATH nice -19 /var/pomcur/bin/pombase-domain-process -p japonicus_peptide.fa \
+PATH=/usr/local/tmhmm-2.0c/bin:$PATH nice -19 /var/pomcur/bin/pombase-domain-process \
+   --run-tmhmm -p japonicus_peptide.fa \
    -i japonicus_peptide.fa.json -o japonicus_domain_results.json
