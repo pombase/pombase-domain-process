@@ -137,6 +137,21 @@ fn main() -> Result<(), std::io::Error> {
 
     let (interproscan_version, mut domains_by_id) = parse(&input_filename);
 
+    if let Some(extra_input_filename) = matches.opt_str("extra-input-file") &&
+        let (_, extra_matches) = parse(&extra_input_filename)
+    {
+        for (gene_uniquename, extra_gene_matches) in extra_matches.into_iter() {
+            domains_by_id.entry(gene_uniquename.clone())
+                .or_insert(GeneMatches {
+                    gene_uniquename: gene_uniquename.clone(),
+                    interpro_matches: vec![],
+                    segmasker_matches: vec![],
+                    tmhmm_matches: vec![],
+                })
+                .interpro_matches.extend(extra_gene_matches.interpro_matches.iter().cloned());
+        }
+    }
+
     if run_tmhmm {
         let tmhmm_handle = make_tmhmm_thread(&protein_filename);
 

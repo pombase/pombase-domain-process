@@ -2,7 +2,7 @@
 name = "pombase-domain-process"
 version = "2.23.0"
 authors = ["Kim Rutherford <kmr44@cam.ac.uk>"]
-edition = "2021"
+edition = "2024"
 
 [lib]
 name = "domain_process"
