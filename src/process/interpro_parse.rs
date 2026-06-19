@@ -193,10 +193,8 @@ pub fn parse(filename: &str)
 
     for result in interproscan_output.results.iter_mut() {
         for interpro_match in result.matches.iter_mut() {
-            if let Some(ref name) = interpro_match.signature.name {
-                if name.is_empty() {
-                    interpro_match.signature.name = None
-                }
+            if let Some(ref name) = interpro_match.signature.name && name.is_empty() {
+                interpro_match.signature.name = None
             }
         }
     }
