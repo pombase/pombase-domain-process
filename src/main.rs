@@ -105,9 +105,12 @@ fn main() -> Result<(), std::io::Error> {
                 "PostgresSQL connection string like: postgres://user:pass@host/db_name",
                 "CONN_STR");
     opts.optopt("i", "input-file",
-                "Input InterPro XML file", "FILE");
+                "InterPro JSON input file", "FILE");
+    opts.optopt("", "extra-input-file",
+                "Extra data file in InterPro JSON format", "FILE");
     opts.optopt("o", "output-file",
                 "Output JSON file", "FILE");
+    opts.optflag("", "run-tmhmm", "Run TMHMM and include in results");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
@@ -130,24 +133,27 @@ fn main() -> Result<(), std::io::Error> {
     let protein_filename = matches.opt_str("p").unwrap();
     let input_filename = matches.opt_str("i").unwrap();
     let output_filename = matches.opt_str("o").unwrap();
+    let run_tmhmm = matches.opt_present("run-tmhmm");
 
     let (interproscan_version, mut domains_by_id) = parse(&input_filename);
 
-    let tmhmm_handle = make_tmhmm_thread(&protein_filename);
+    if run_tmhmm {
+        let tmhmm_handle = make_tmhmm_thread(&protein_filename);
 
-    let tmhmm_matches =
-        tmhmm_handle.join().expect("Failed to get TMHMM results");
+        let tmhmm_matches =
+            tmhmm_handle.join().expect("Failed to get TMHMM results");
 
-    for (protein_id, domain_match) in tmhmm_matches {
-        let gene_uniquename = protein_id.replace(".1:pep", "");
-        domains_by_id.entry(gene_uniquename.clone())
-            .or_insert(GeneMatches {
-                gene_uniquename,
-                interpro_matches: vec![],
-                segmasker_matches: vec![],
-                tmhmm_matches: vec![],
-            })
-            .tmhmm_matches.extend(domain_match);
+        for (protein_id, domain_match) in tmhmm_matches {
+            let gene_uniquename = protein_id.replace(".1:pep", "");
+            domains_by_id.entry(gene_uniquename.clone())
+                .or_insert(GeneMatches {
+                    gene_uniquename,
+                    interpro_matches: vec![],
+                    segmasker_matches: vec![],
+                    tmhmm_matches: vec![],
+                })
+                .tmhmm_matches.extend(domain_match);
+        }
     }
 
     let segmasker_handle = make_segmasker_thread(&protein_filename);
