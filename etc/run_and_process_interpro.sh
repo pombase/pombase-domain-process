@@ -27,7 +27,7 @@ nextflow run ebi-pf-team/interproscan6 -r $INTERPROSCAN_VERSION -profile docker 
 
 PATH=/usr/local/tmhmm-2.0c/bin:$PATH nice -19 /var/pomcur/bin/pombase-domain-process \
    --run-tmhmm -p pombe_peptide.fa \
-   --extra-input-file /data/pombase/interproscan6/deeptmhmm_pombe_peptide.fa.json \
+   --extra-input-file /var/pomcur/sources/interpro/deeptmhmm_pombe_peptide.fa.json \
    -i pombe_peptide.fa.json -o pombe_domain_results.json
 
 PATH=/usr/local/tmhmm-2.0c/bin:$PATH nice -19 /var/pomcur/bin/pombase-domain-process \
