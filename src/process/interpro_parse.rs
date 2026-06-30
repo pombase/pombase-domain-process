@@ -129,8 +129,11 @@ fn process_one_result(matches: Vec<InterProScanMatch>)
             match_map
                 .entry(match_id.clone())
                 .or_insert_with(|| {
-                    let dbname = format!("{}{}", library,
-                                         sequence_feature_str);
+                    let dbname = if signature.accession == "Signal Peptide" {
+                        format!("{library}-Signal-Peptide")
+                    } else {
+                        format!("{library}{sequence_feature_str}")
+                    };
                     let interpro_id =
                         signature.entry.as_ref().map(|entry| entry.accession.clone());
                     let interpro_name =
